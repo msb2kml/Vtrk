@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Hello World!"
+        android:textAppearance="@style/TextAppearance.AppCompat.Caption"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/colBy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:text=" - (none)"
+        android:textAllCaps="false"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/title" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Color by : "
+        app:layout_constraintBaseline_toBaselineOf="@id/colBy"
+        app:layout_constraintEnd_toStartOf="@id/colBy"
+        />
+
+    <EditText
+        android:id="@+id/redVal"
+        android:layout_width="70sp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:ems="10"
+        android:inputType="number|numberDecimal|numberSigned"
+        android:text="1234.67"
+        android:textSize="14sp"
+        android:enabled="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/colBy" />
+
+    <TextView
+        android:id="@+id/textView7"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=" to RED "
+        app:layout_constraintBaseline_toBaselineOf="@id/redVal"
+        app:layout_constraintEnd_toStartOf="@id/redVal" />
+
+    <EditText
+        android:id="@+id/blueVal"
+        android:layout_width="70sp"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:enabled="false"
+        android:inputType="number|numberDecimal|numberSigned"
+        android:text="1234.67"
+        android:textSize="14sp"
+        app:layout_constraintBaseline_toBaselineOf="@id/redVal"
+        app:layout_constraintEnd_toStartOf="@id/textView7" />
+
+    <TextView
+        android:id="@+id/textView6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="From BLUE "
+        app:layout_constraintEnd_toStartOf="@id/blueVal"
+        app:layout_constraintBaseline_toBaselineOf="@id/redVal" />
+
+    <TextView
+        android:id="@+id/timeTrack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="0"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textView6" />
+
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginRight="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/timeTrack" />
+
+    <android.support.constraint.ConstraintLayout
+        android:id="@+id/cEntr"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginRight="8dp"
+        android:background="@drawable/box"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/progress">
+
+        <Button
+            android:id="@+id/entire"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginLeft="24dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginRight="24dp"
+            android:layout_marginBottom="8dp"
+            android:text="Entire"
+            app:layout_constraintEnd_toEndOf="@id/cEntr"
+            app:layout_constraintStart_toStartOf="@id/cEntr"
+            app:layout_constraintBottom_toBottomOf="@id/cEntr"
+            app:layout_constraintTop_toTopOf="@id/cEntr" />
+
+    </android.support.constraint.ConstraintLayout>
+
+
+    <android.support.constraint.ConstraintLayout
+        android:id="@+id/cTrail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginRight="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cEntr"
+        android:background="@drawable/box">
+
+        <RadioGroup
+            android:id="@+id/speed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@android:color/holo_blue_bright"
+            android:checkedButton="@+id/sp1"
+            android:orientation="horizontal"
+            android:visibility="visible"
+            app:layout_constraintEnd_toEndOf="@id/cTrail"
+            app:layout_constraintStart_toStartOf="@id/cTrail"
+            app:layout_constraintTop_toTopOf="@id/cTrail">
+
+            <RadioButton
+                android:id="@+id/sp1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Speed x1" />
+
+            <RadioButton
+                android:id="@+id/sp2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Speed 2x" />
+
+            <RadioButton
+                android:id="@+id/sp10"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Speed 10x" />
+
+        </RadioGroup>
+
+        <Button
+            android:id="@+id/skp0"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:text="Trail"
+            app:layout_constraintStart_toStartOf="@id/cTrail"
+            app:layout_constraintBottom_toBottomOf="@id/cTrail"
+            app:layout_constraintTop_toBottomOf="@+id/speed" />
+
+        <Button
+            android:id="@+id/skp2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Skip 2 min"
+            app:layout_constraintBottom_toBottomOf="@+id/skp0"
+            app:layout_constraintEnd_toStartOf="@+id/skp10"
+            app:layout_constraintStart_toEndOf="@+id/skp0" />
+
+        <Button
+            android:id="@+id/skp10"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_marginRight="16dp"
+            android:text="Skip 10 min"
+            app:layout_constraintBottom_toBottomOf="@+id/skp2"
+            app:layout_constraintEnd_toEndOf="@id/cTrail" />
+
+    </android.support.constraint.ConstraintLayout>
+
+    <Button
+        android:id="@+id/stop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginLeft="24dp"
+        android:layout_marginTop="16dp"
+        android:text="Stop"
+        android:textAllCaps="true"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cTrail" />
+
+    <Button
+        android:id="@+id/selGpx"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="24dp"
+        android:layout_marginRight="24dp"
+        android:text="Select GPX"
+        android:textAllCaps="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/stop" />
+
+
+</android.support.constraint.ConstraintLayout>

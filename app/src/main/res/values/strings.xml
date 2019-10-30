@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Vtrk</string>
+    <string name="title_activity_selector">Selector</string>
+    <string name="PrefName">Vtrk</string>
+</resources>
