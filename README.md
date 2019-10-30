@@ -41,7 +41,7 @@ Vtrk register itself to the system as able to open GPX files: it could
 be offered to open files of this type by applications such as a
 file manager or a mailer.
 
-#Color
+# Color
 The segments drawn between track points could be colored by some
 parameter extracted or computed from the track data.  
 A range has to be defined and a correspondence is established
@@ -74,7 +74,7 @@ parameter that has been used for the color (or the altitude).
 
 See the [screenshot](Gallery/Entire.jpg).
 
-#Mode "Vapor Trail"
+# Mode "Vapor Trail"
 The track is drawn progressively as a vanishing vapor trail,
 at a speed approximately equivalent to the recording speed.
 This speed could be accelerated by a factor 2 or 10.  
