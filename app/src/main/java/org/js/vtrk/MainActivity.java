@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
 
     TextView tFile=null;
     TextView tTime;
+    TextView tType;
     ProgressBar pBar;
     RadioGroup rSpeed;
     RadioButton rSp1;
@@ -60,20 +61,27 @@ public class MainActivity extends AppCompatActivity {
     EditText etBlue;
     Track track=null;
     Long size;
+    Integer nbWpt =0;
+    Integer nbTrk=0;
+    Integer nbRte=0;
     boolean running=false;
-    Long lastDis=null;
     Long lastTrk=null;
     Long divisor=1L;
     Long toSkip=0L;
     Long startTime=null;
     Intent intentMap=null;
     Boolean runningMap=false;
+    Boolean waitMap=false;
     Double zoom=15.0;
     Boolean setStart=true;
     Location startLoc=null;
+    Location centerLoc=null;
     Double prevAlt=null;
     Location dispLoc=null;
     Location prevLoc=null;
+    Boolean startLine=true;
+    Track.enttGpx curEntity= Track.enttGpx.ALIEN;
+    String curEntName=null;
     String fileName;
     Boolean Tail=true;
     Double minAlt=null;
@@ -127,7 +135,17 @@ public class MainActivity extends AppCompatActivity {
     private Runnable timerTask=new Runnable() {
         @Override
         public void run() {
-            Vnext();
+            dispatch(2);
+        }
+    };
+
+    private final BroadcastReceiver mReceiver=new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String origin=intent.getStringExtra("NAME");
+            unregisterReceiver(mReceiver);
+            waitMap=false;
+            dispatch(1);
         }
     };
 
@@ -211,9 +229,16 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onResume(){
-
         super.onResume();
         fromMap();
+    }
+
+    public void fromMap(){
+        if (runningMap) {
+            running = false;
+            runningMap = false;
+//            Toast.makeText(context, "Return from map", Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
@@ -231,10 +256,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     public void start1(){
         if (tFile!=null) return;
         tFile=(TextView) findViewById(R.id.title);
+        tType=(TextView) findViewById(R.id.type);
         tTime=(TextView) findViewById(R.id.timeTrack);
         pBar=(ProgressBar) findViewById(R.id.progress);
         rSpeed=(RadioGroup) findViewById(R.id.speed);
@@ -271,12 +296,37 @@ public class MainActivity extends AppCompatActivity {
         bEntire.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                entireTrack();
+                if (colSrc!=colNone){
+                    if (!getValCol()){
+                        Toast.makeText(context,"Please check the Blue and Red values.",
+                             Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                Tail=false;
+                nbWpt =0;
+                nbTrk=0;
+                nbRte=0;
+                if (track!=null){
+                    track.close();
+                    track=null;
+                }
+                running=true;
+                dispatch(0);
+//                entireTrack();
             }
         });
         bSkp0.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (colSrc!=colNone){
+                    if (!getValCol()){
+                        Toast.makeText(context,"Please check the Blue and Red values.",
+                             Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                Tail=true;
                 running=true;
                 getSpeed();
                 toSkip=0L;
@@ -286,6 +336,14 @@ public class MainActivity extends AppCompatActivity {
         bSkp2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (colSrc!=colNone){
+                    if (!getValCol()){
+                        Toast.makeText(context,"Please check the Blue and Red values.",
+                             Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                Tail=true;
                 running=true;
                 getSpeed();
                 toSkip=120000L;
@@ -295,6 +353,14 @@ public class MainActivity extends AppCompatActivity {
         bSkp10.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (colSrc!=colNone){
+                    if (!getValCol()){
+                        Toast.makeText(context,"Please check the Blue and Red values.",
+                             Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                Tail=true;
                 running=true;
                 getSpeed();
                 toSkip=600000L;
@@ -312,6 +378,9 @@ public class MainActivity extends AppCompatActivity {
         tTime.setText("0");
         pBar.setProgress(0);
         if (track!=null) track.close();
+        nbWpt =0;
+        nbRte=0;
+        nbTrk=0;
         running=false;
         track=null;
         Intent intent = new Intent(MainActivity.this, Selector.class);
@@ -320,6 +389,37 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("Mask", ".+\\.gpx");
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivityForResult(intent, 2);
+    }
+
+    Location introTyp(){
+        Track.enttGpx entity;
+        if (track!=null) track.close();
+        Location first=initTrack();
+        if (first==null) return null;
+        Track.enttGpx first_ent=(Track.enttGpx) first.getExtras().getSerializable("ENTITY");
+        Long position=track.getPos();
+        Location chlngr=first;
+        while (position<3000 && chlngr!=null){
+            entity=(Track.enttGpx) chlngr.getExtras().getSerializable("ENTITY");
+            switch (entity){
+                case TRK:
+                case RTE:
+                    track.close();
+                    track=null;
+                    return chlngr;
+                case WPT:
+                    if (first_ent!=Track.enttGpx.WPT){
+                        first=chlngr;
+                        first_ent=entity;
+                    }
+                    break;
+            }
+            chlngr=readTrk();
+            position=track.getPos();
+        }
+        track.close();
+        track=null;
+        return first;
     }
 
     void selectCol(){
@@ -382,10 +482,33 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void start2(){
+        String note;
         File f=new File(filePath);
+        Location first=introTyp();
+        if (first==null){
+            note="??";
+        } else {
+            String nameTyp=first.getExtras().getString("name",null);
+            Track.enttGpx entity=(Track.enttGpx)first.getExtras().getSerializable("ENTITY");
+            switch (entity){
+                case WPT:
+                    note="Waypoint: "+nameTyp;
+                    break;
+                case TRK:
+                    note="Track: "+nameTyp;
+                    break;
+                case RTE:
+                    note="Route: "+nameTyp;
+                    break;
+                default:
+                    note="??: "+nameTyp;
+            }
+        }
+        tType.setText(note);
         Directory=f.getParent();
         fileName=f.getName();
         tFile.setText(fileName);
+        pBar.setProgress(0);
         putPref();
     }
 
@@ -404,52 +527,98 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    Location initTrack(){
+        Location firstLoc=null;
+        if (track!=null) track.close();
+        track=new Track();
+        size=track.open(filePath);
+        nbWpt =0;
+        nbRte=0;
+        nbTrk=0;
+        firstLoc=readTrk();
+        if (firstLoc==null){
+            eof();
+            Toast.makeText(context,"No valid item in "+fileName,Toast.LENGTH_LONG).show();
+            return null;
+        }
+        minVal=null;
+        maxVal=null;
+        return firstLoc;
+    }
+
     public Location readTrk(){
         Location loc;
         Long position;
-
+        Track.enttGpx entity=null;
+        String name;
+        String entName;
         if (track==null) return null;
-        loc=track.nextPt();
-        if (loc==null) return loc;
-        position = track.getPos();
-        Float prog = (100.0f * Float.valueOf(position)) / Float.valueOf(size);
-        pBar.setProgress(prog.intValue());
-        if (startTime!=null) {
-            Long sec = (loc.getTime() - startTime) / 1000L;
-            Long hour=sec/3600L;
-            Long min=(sec-hour*3600L)/60L;
-            Long s=(sec-hour*3600L-min*60L);
-            tTime.setText(String.format("%02d:%02d:%02d",hour,min,s));
+        while (true) {
+            loc = track.nextPt();
+            if (loc == null) return loc;
+            position = track.getPos();
+            Float prog = (100.0f * Float.valueOf(position)) / Float.valueOf(size);
+            pBar.setProgress(prog.intValue());
+            if (startTime != null && loc.getTime() != 0L) {
+                Long sec = (loc.getTime() - startTime) / 1000L;
+                Long hour = sec / 3600L;
+                Long min = (sec - hour * 3600L) / 60L;
+                Long s = (sec - hour * 3600L - min * 60L);
+                tTime.setText(String.format("%02d:%02d:%02d", hour, min, s));
+            }
+            return loc;
         }
-        return loc;
+    }
+
+    void eof(){
+        track.close();
+        running=false;
+        Toast.makeText(context,"END OF FILE",Toast.LENGTH_LONG).show();
+        track=null;
     }
 
     public Location skip(Location currentLoc){
         Location loc;
-        if (toSkip==0l) return currentLoc;
+        if (toSkip==0l || currentLoc.getTime()==0L) return currentLoc;
         loc=currentLoc;
         Long target=currentLoc.getTime()+toSkip;
-        toSkip=0L;
         while (loc.getTime()<target){
             loc=readTrk();
-            if (loc==null) return loc;
+            if (loc==null ||
+                    loc.getExtras().getSerializable("ENTITY")!=Track.enttGpx.TRKWPT){
+                toSkip=0L;
+                return loc;
+            }
         }
+        toSkip=0L;
         return loc;
     }
 
     Location smooth(Location disploc){
         Location refLoc;
+        if (colSrc==colNone) return null;
+        if ((colSrc==colHeight || colSrc==colSlp) && !disploc.hasAltitude()) return null;
         if (stack.size()==0) {
             stack.addFirst(disploc);
             return null;
         }
-        if ((disploc.getTime()-stack.get(0).getTime()>1000L)) {
-            stack.addFirst(disploc);
+        if (colSrc==colHeight || colSrc==colSlp){
+            Double alt=disploc.getAltitude();
+            Double alt0=stack.get(0).getAltitude();
+            if (Math.abs(alt-alt0)>1.0) stack.addFirst(disploc);
+            Double altL=stack.getLast().getAltitude();
+//            if (Math.abs(alt-altL)<1.0) return null;
+        } else {
+            if ((disploc.getTime() - stack.get(0).getTime() > 1000L)) {
+                stack.addFirst(disploc);
+            }
+            Long dif = disploc.getTime() - stack.getLast().getTime();
+            if (dif < 10000L) {
+                return null;
+            }
         }
-        Long dif=disploc.getTime()-stack.getLast().getTime();
-        if (dif<10000L) { return null; }
-        refLoc=stack.getLast();
-        if (stack.size()>10) stack.removeLast();
+        refLoc = stack.getLast();
+        if (stack.size() > 10) stack.removeLast();
         return refLoc;
     }
 
@@ -461,74 +630,320 @@ public class MainActivity extends AppCompatActivity {
         return lineColor[v];
     }
 
-    public void Vnext(){
+    void launchMap(){
+        stack.clear();
+        setStart=true;
+        Intent nt=(Intent) intentMap.clone();
+        nt.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        nt.putExtra("CALLER",context.getString(R.string.app_name));
+        nt.putExtra("CENTER",centerLoc);
+        nt.putExtra("StartGPS",false);
+        nt.putExtra("Tail",Tail);
+        if (zoom!=null) nt.putExtra("ZOOM",zoom);
+        zoom=null;
+        runningMap=true;
+        startActivity(nt);
+        waitMap=true;
+        registerReceiver(mReceiver,filter);
+        return;
+    }
+
+    Double getVal(Location thisLoc){
+        Double alt;
+        if (thisLoc.hasAltitude() && startLoc.hasAltitude()) alt=thisLoc.getAltitude();
+        else alt=null;
+        if (colSrc==colNone){
+            return alt;
+        } else if (colSrc==colHeight){
+            if (alt!=null) return alt-startLoc.getAltitude();
+            else return null;
+        } else if (colSrc==colMpS){
+            if (alt==null) return null;
+            else {
+                Location refLoc = smooth(thisLoc);
+                if (refLoc == null) return null;
+                else {
+                    Long dif = thisLoc.getTime() - refLoc.getTime();
+                    Double h = alt - refLoc.getAltitude();
+                    return h / dif.doubleValue() * 1000.0;
+                }
+            }
+        } else if (colSrc==colMpH){
+            if (alt==null) return null;
+            else {
+                Location refLoc = smooth(thisLoc);
+                if (refLoc == null) return null;
+                else {
+                    Long dif = thisLoc.getTime() - refLoc.getTime();
+                    Double h = alt - refLoc.getAltitude();
+                    return h / dif.doubleValue() * 1000.0 * 3600.0;
+                }
+            }
+        } else if (colSrc==colKpH){
+            if (startLoc.getTime()==0L || thisLoc.getTime()==0L) return null;
+            else {
+                Location refLoc = smooth(thisLoc);
+                if (refLoc == null) return null;
+                else {
+                    Long dif = thisLoc.getTime() - refLoc.getTime();
+                    Double dist = haver.lHaversine(refLoc, thisLoc);
+                    return dist / dif.doubleValue() * 1000.0 * 3600.0;
+                }
+            }
+        } else if (colSrc==colSlp){
+            if (alt==null) return null;
+            else {
+                Location refLoc = smooth(thisLoc);
+                if (refLoc == null) return null;
+                else {
+                    Double dis = haver.lHaversine(refLoc, thisLoc) * 1000.0;
+                    if (dis < 1.0) return null;
+                    else {
+                        return (alt - refLoc.getAltitude()) / dis * 100.0;
+                    }
+                }
+            }
+        } else return null;
+    }
+
+    void dispatch(int from){
+        if (!running) return;
+        if (track==null){
+            dispLoc=initTrack();
+            if (dispLoc==null){
+                selGpx();
+                return;
+            }
+        }
+        while (dispLoc!=null) {
+            Track.enttGpx entity = (Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+            if (Tail && (entity == Track.enttGpx.TRK || entity == Track.enttGpx.TRKWPT)) {
+                if (withTail()) return;
+            } else {
+                if (noTail()) return;
+            }
+        }
+        eof();
+    }
+
+    Boolean noTail(){
+        if (dispLoc==null) return true;
+        int nbBroadcast=0;
+        Track.enttGpx entity=(Track.enttGpx)dispLoc.getExtras().getSerializable("ENTITY");
+        switch (entity){
+            case WPT:
+                curEntity=entity;
+            case RTEWPT:
+            case TRKWPT:
+                if (!runningMap) {
+                    centerLoc=dispLoc;
+                    launchMap();
+                    return true;
+                }
+                break;
+            case TRK:
+                curEntName="Track "+dispLoc.getExtras().getString("name",null);
+                setStart=true;
+                startLoc=null;
+                stack.clear();
+                minVal=null;
+                maxVal=null;
+                minAlt=null;
+                maxAlt=null;
+                curEntity=entity;
+                dispLoc=readTrk();
+                return false;
+            case RTE:
+                curEntName="Route "+dispLoc.getExtras().getString("name",null);
+                setStart=true;
+                startLoc=null;
+                stack.clear();
+                minVal=null;
+                maxVal=null;
+                minAlt=null;
+                maxAlt=null;
+                curEntity=entity;
+                dispLoc=readTrk();
+                return false;
+            case ALIEN:
+                track.close();
+                Toast.makeText(context,"Sorry, "+fileName+" is not compatible.",
+                        Toast.LENGTH_LONG).show();
+                selGpx();
+                return true;
+
+        }
+        while (true){
+            nbBroadcast++;
+            if (nbBroadcast>100){
+                mHandler.postDelayed(timerTask,100L);
+                return true;
+            }
+            entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+            switch (curEntity){
+                case WPT:
+                    if (entity!=curEntity) return false;
+                    nbWpt++;
+                    dispWpt(dispLoc,null);
+                    break;
+                case TRKWPT:
+                case RTEWPT:
+                    if (entity!=curEntity) {
+                        return false;
+                    }
+                    dispTrk(dispLoc,false);
+                    break;
+                case RTE:
+                    if (entity!= Track.enttGpx.RTEWPT) return false;
+                    if (setStart){
+                        if (startLoc==null) {
+                            startLoc=dispLoc;
+                            startLoc.getExtras().putString("name",curEntName);
+                            if (startLoc.hasAltitude()){
+                                minAlt=startLoc.getAltitude();
+                                maxAlt=minAlt;
+                            }
+                        }
+                        startLine=true;
+                        prevAlt=null;
+                    }
+                    dispTrk(dispLoc,false);
+                    if (setStart){
+                        nbRte++;
+                        dispWpt(startLoc,String.valueOf(nbRte)+": "+ curEntName);
+                        setStart=false;
+                    }
+                    prevLoc=dispLoc;
+                    curEntity=entity;
+                    break;
+                case TRK:
+                    if (entity!= Track.enttGpx.TRKWPT) return false;
+                    if (setStart){
+                        if (startLoc==null) {
+                            startLoc=dispLoc;
+                            startLoc.getExtras().putString("name",curEntName);
+                            if (startLoc.hasAltitude()){
+                                minAlt=startLoc.getAltitude();
+                                maxAlt=minAlt;
+                            }
+                        }
+                        startLine=true;
+                        prevAlt=null;
+                    }
+                    dispTrk(dispLoc,false);
+                    if (setStart){
+                        nbTrk++;
+                        dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName);
+                        setStart=false;
+                    }
+                    prevLoc=dispLoc;
+                    curEntity=entity;
+                    break;
+            }
+            if (!runningMap) return true;
+            dispLoc=readTrk();
+            if (dispLoc==null) {
+                return false;
+            }
+        }
+    }
+
+    Boolean withTail(){
+        if (dispLoc==null || !Tail) return false;
+        Track.enttGpx entity=(Track.enttGpx)dispLoc.getExtras().getSerializable("ENTITY");
+        switch (entity){
+            case TRKWPT:
+                if (!runningMap){
+                    centerLoc=dispLoc;
+                    launchMap();
+                    return true;
+                }
+                break;
+            case TRK:
+                curEntName="Track "+dispLoc.getExtras().getString("name",null);
+                setStart=true;
+                startLoc=null;
+                stack.clear();
+                minVal=null;
+                maxVal=null;
+                minAlt=null;
+                maxAlt=null;
+                curEntity=entity;
+                dispLoc=readTrk();
+                return false;
+            default:
+                return false;
+        }
+        entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+        if (entity!= Track.enttGpx.TRKWPT) return false;
+        if (setStart){
+            if (startLoc==null){
+                if (dispLoc.getTime()==0L || !dispLoc.hasAltitude()){
+                    Tail=false;
+                    return false;
+                }
+                startLoc=dispLoc;
+                startTime=startLoc.getTime();
+                startLoc.getExtras().putString("name",curEntName);
+                minAlt=startLoc.getAltitude();
+                maxAlt=minAlt;
+                if (toSkip>0){
+                    dispLoc=skip(dispLoc);
+                    if (dispLoc==null) return false;
+                    entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+                    if (entity!= Track.enttGpx.TRKWPT) return false;
+                }
+            }
+            startLine=true;
+            prevAlt=null;
+        }
+        dispTrk(dispLoc,true);
+        if (setStart){
+            nbTrk++;
+            dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName);
+            setStart=false;
+        }
+        prevLoc=dispLoc;
+        curEntity=entity;
+        lastTrk=dispLoc.getTime();
+        Long toWait=0L;
+        while (toWait<300L){
+            dispLoc=readTrk();
+            if (dispLoc==null) return false;
+            entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+            if (entity!=Track.enttGpx.TRKWPT) return false;
+            if (dispLoc.getTime()>0L) toWait=(dispLoc.getTime()-lastTrk)/divisor;
+        }
+        mHandler.postDelayed(timerTask,toWait);
+        return true;
+    }
+
+    void dispWpt(Location loc, String infoBubble){
+        Intent nt = new Intent();
+        nt.setAction("org.js.LOC");
+        nt.putExtra("WPT",loc);
+        String namWpt=loc.getExtras().getString("name", "?");;
+        if (infoBubble==null) {
+            if (loc.hasAltitude()) {
+                namWpt = String.format(Locale.ENGLISH, "%s (%.1f)",
+                        loc.getExtras().getString("name", "?"), loc.getAltitude());
+            }
+            nt.putExtra("BUBBLE",namWpt);
+        } else {
+            nt.putExtra("BUBBLE",infoBubble);
+        }
+        nt.putExtra("WPT_NAME", namWpt);
+        sendBroadcast(nt);
+    }
+
+    void dispTrk(Location loc, Boolean actTail){
         Double val=0.0;
         String label="";
         Integer col=Color.BLACK;
-
-        if (!Tail){
-            fillTrack();
-            return;
-        }
-        if (!running) return;
-        Long now=System.currentTimeMillis();
-        if (track==null){
-            track=new Track();
-            size=track.open(filePath);
-            dispLoc=readTrk();
-            if (dispLoc==null){
-                eof();
-                finish();
-                return;
-            } else {
-                startLoc = dispLoc;
-                if (startLoc.getTime()==0L || !startLoc.hasAltitude() ){
-                    track.close();
-                    Toast.makeText(context,"Sorry, "+fileName+" is not compatible.",
-                            Toast.LENGTH_LONG).show();
-                    finish();
-                    return;
-                }
-                startTime = startLoc.getTime();
-                prevAlt = null;
-            }
-        }
-        if (!runningMap){
-            if (colSrc!=colNone){
-                if (!getValCol()){
-                    Toast.makeText(context,"Please check the Blue and Red values.",
-                            Toast.LENGTH_LONG).show();
-                    return;
-                }
-            }
-            Intent nt=(Intent) intentMap.clone();
-            nt.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            nt.putExtra("CALLER",context.getString(R.string.app_name));
-            nt.putExtra("CENTER",startLoc);
-            nt.putExtra("StartGPS",false);
-            nt.putExtra("Tail",Tail);
-            if (zoom!=null) nt.putExtra("ZOOM",zoom);
-            zoom=null;
-            runningMap=true;
-            startActivity(nt);
-            stack.clear();
-            setStart=true;
-            if (toSkip>0){
-                dispLoc=skip(dispLoc);
-                if (dispLoc==null){
-                    eof();
-                    return;
-                }
-                prevAlt=null;
-            }
-            registerReceiver(mReceiver,filter);
-            return;
-        }
+        String bubbleMap;
         Intent nt=new Intent();
-        nt.setAction("org.js.LOC");
-        nt.putExtra("LOC",dispLoc);
         label=Labels[colSrc];
-        val=getVal(dispLoc);
+        val=getVal(loc);
         if (val==null){
             col=Color.BLACK;
             val=0.0;
@@ -543,216 +958,36 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 col=colorz(val);
             }
-        }
-        nt.putExtra("COLOR",col);
-        String bubbleMap=String.format(Locale.ENGLISH,"%s %.1f",label,val);
-        nt.putExtra("BUBBLE",bubbleMap);
-        sendBroadcast(nt);
-        if (setStart){
-            nt=new Intent();
-            nt.setAction("org.js.LOC");
-            nt.putExtra("WPT",startLoc);
-            nt.putExtra("WPT_NAME",fileName);
-            sendBroadcast(nt);
-            setStart=false;
-        }
-        lastDis=now;
-        lastTrk=dispLoc.getTime();
-        Long toWait=0L;
-        while (toWait<300L){
-            dispLoc=readTrk();
-            if (dispLoc==null){
-                eof();
-                return;
-            }
-            toWait=(dispLoc.getTime()-lastTrk)/divisor;
-        }
-        mHandler.postDelayed(timerTask,toWait);
-    }
-
-
-    public void fromMap(){
-        if (runningMap) {
-            running = false;
-            runningMap = false;
-//            Toast.makeText(context, "Return from map", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    void eof(){
-        track.close();
-        running=false;
-        Toast.makeText(context,"END OF FILE",Toast.LENGTH_LONG).show();
-        bSkp0.setEnabled(false);
-        bSkp2.setEnabled(false);
-        bSkp10.setEnabled(false);
-        track=null;
-    }
-
-    Double getVal(Location thisLoc){
-        Double alt=thisLoc.getAltitude();
-        if (colSrc==colNone){
-            return alt;
-        } else if (colSrc==colHeight){
-            return alt-startLoc.getAltitude();
-        } else if (colSrc==colMpS){
-            Location refLoc=smooth(thisLoc);
-            if (refLoc==null) return null;
-            else {
-                Long dif=thisLoc.getTime()-refLoc.getTime();
-                Double h=alt-refLoc.getAltitude();
-                return h/dif.doubleValue()*1000.0;
-            }
-        } else if (colSrc==colMpH){
-            Location refLoc=smooth(thisLoc);
-            if (refLoc==null) return null;
-            else {
-                Long dif=thisLoc.getTime()-refLoc.getTime();
-                Double h=alt-refLoc.getAltitude();
-                return h/dif.doubleValue()*1000.0*3600.0;
-            }
-        } else if (colSrc==colKpH){
-            Location refLoc=smooth(thisLoc);
-            if (refLoc==null) return null;
-            else {
-                Long dif=thisLoc.getTime()-refLoc.getTime();
-                Double dist=haver.lHaversine(refLoc,thisLoc);
-                return dist/dif.doubleValue()*1000.0*3600.0;
-            }
-        } else if (colSrc==colSlp){
-            Location refLoc=smooth(thisLoc);
-            if (refLoc==null) return null;
-            else {
-                Double dis=haver.lHaversine(refLoc,thisLoc)*1000.0;
-                if (dis<1.0) return null;
-                else {
-                    return (alt-refLoc.getAltitude())/dis*100.0;
-                }
-            }
-        } else return null;
-    }
-
-    void entireTrack(){
-        if (colSrc!=colNone){
-            if (!getValCol()){
-                Toast.makeText(context,"Please check the Blue and Red values.",
-                        Toast.LENGTH_LONG).show();
-                return;
-            }
-        }
-        minVal=null;
-        maxVal=null;
-        stack.clear();
-        if (track!=null) track.close();
-        track=new Track();
-        size=track.open(filePath);
-        dispLoc=readTrk();
-        if (dispLoc==null){
-            eof();
-            bEntire.setEnabled(false);
-            finish();
-            return;
-        } else {
-            startLoc = dispLoc;
-            if (startLoc.getTime()==0L || !startLoc.hasAltitude() ){
-                track.close();
-                Toast.makeText(context,"Sorry, "+fileName+" is not compatible.",
-                        Toast.LENGTH_LONG).show();
-                finish();
-                return;
-            }
-            prevLoc=dispLoc;
-            startTime = startLoc.getTime();
-            prevAlt = null;
-            minAlt=dispLoc.getAltitude();
-            maxAlt=minAlt;
-        }
-        Tail=false;
-        Intent nt=(Intent) intentMap.clone();
-        nt.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        nt.putExtra("CALLER",context.getString(R.string.app_name));
-        nt.putExtra("CENTER",startLoc);
-        nt.putExtra("StartGPS",false);
-        nt.putExtra("Tail",Tail);
-        if (zoom!=null) nt.putExtra("ZOOM",zoom);
-        zoom=null;
-        runningMap=true;
-        startActivity(nt);
-        setStart=true;
-        registerReceiver(mReceiver,filter);
-    }
-
-    void fillTrack(){
-        Intent nt;
-        Double val=0.0;
-        String label="";
-        Integer col=Color.BLACK;
-        if (colSrc==colNone) label="Alt.";
-        else if (colSrc==colHeight) label="Height";
-        else if (colSrc==colMpH) label="m/h";
-        else if (colSrc==colMpS) label="m/s";
-        while (dispLoc!=null) {
-            dispLoc = readTrk();
-            if (dispLoc == null) {
-                if (setStart){
-                    nt=new Intent();
-                    nt.setAction("org.js.LOC");
-                    nt.putExtra("WPT",startLoc);
-                    nt.putExtra("WPT_NAME",fileName);
-                    sendBroadcast(nt);
-                    setStart=false;
-                }
-                eof();
-                bSkp0.setEnabled(true);
-                bSkp2.setEnabled(true);
-                bSkp10.setEnabled(true);
-                Tail=true;
-                runningMap=false;
-                return;
-            }
-            nt = new Intent();
-            nt.setAction("org.js.LOC");
-            nt.putExtra("LOC", dispLoc);
-            label=Labels[colSrc];
-            val=getVal(dispLoc);
-            if (val==null){
-                col=Color.BLACK;
-                val=0.0;
+            if (minVal==null){
+                minVal=val;
+                maxVal=val;
             } else {
-                if (colSrc==colNone){
-                    if (prevAlt == null || val > prevAlt) {
-                        col=Color.rgb(0xFF, 0x00, 0x00);
-                    } else {
-                        col=Color.rgb(0x00, 0x00, 0xFF);
-                    }
-                    prevAlt=val;
-                } else {
-                    col=colorz(val);
-                }
-                if (minVal==null){
-                    minVal=val;
-                    maxVal=val;
-                } else {
-                    minVal=Math.min(minVal,val);
-                    maxVal=Math.max(maxVal,val);
-                }
+                minVal=Math.min(minVal,val);
+                maxVal=Math.max(maxVal,val);
             }
-            nt.putExtra("COLOR",col);
-            String bubbleMap=String.format(Locale.ENGLISH,"%s %.1f to %.1f",label,
-                    minVal,maxVal);
-            nt.putExtra("BUBBLE", bubbleMap);
-            prevLoc=dispLoc;
-            sendBroadcast(nt);
         }
+        if (minVal==null || maxVal==null){
+            bubbleMap=null;
+        } else {
+            if (actTail){
+                bubbleMap=String.format(Locale.ENGLISH,"%s %.1f",label,val);
+            } else {
+                bubbleMap = String.format(Locale.ENGLISH, "%s %.1f to %.1f", label,
+                        minVal, maxVal);
+            }
+        }
+        nt.setAction("org.js.LOC");
+        nt.putExtra("LOC",loc);
+        nt.putExtra("COLOR",col);
+        nt.putExtra("BUBBLE",bubbleMap);
+        if (startLine){
+            nt.putExtra("START",startLine);
+            nt.putExtra("Tail",actTail);
+            startLine=false;
+        }
+        sendBroadcast(nt);
     }
 
-    private final BroadcastReceiver mReceiver=new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String origin=intent.getStringExtra("NAME");
-            unregisterReceiver(mReceiver);
-            Vnext();
-        }
-    };
+
 
 }

@@ -1,11 +1,14 @@
 # Purpose
-This application draws on a topographic map a track stored in a GPX file .
+This application draws on a background topographic map the tracks,
+routes and waypoints stored in a GPX file.
 
 The map is displayed by the [Msb2Map](https://github.com/msb2kml/Msb2Map/)
-application and Vtrk read the track and drive Msb2Map.  
-The data from the GPS track that is processed is the latitude, the
-longitude, the altitude and the time. Other data (heart rate, ...)
-is ignored.
+application driven by Vtrk.  
+Latitude, longitude, altitude and name from the waypoints are processed.
+For the routes, the name and from the route waypoints, the latitude,
+the longitude and eventually the altitude are processed.
+The name of the tracks as well as the latitude, longitude, altitude
+and time for the track waypoints are processed.  
 
 Many hiking GPS and GPS applications for smartphones are recording compatible
 files.  
@@ -21,6 +24,7 @@ VtrkXX.apk) should be transferred to the storage of the device
 the opportunity to install it.
 
 The Msb2Map application should be independently installed.
+Minimum version 1.4.
 
 # Permissions
 The Vtrk application needs to read the internal and the external storage.  
@@ -41,10 +45,15 @@ Vtrk register itself to the system as able to open GPX files: it could
 be offered to open files of this type by applications such as a
 file manager or a mailer.
 
+# Processing
+The elements waypoints, routes and tracks are drawn in the order
+they are found when the file is read.
+
 # Color
-The segments drawn between track points could be colored by some
-parameter extracted or computed from the track data.  
-A range has to be defined and a correspondence is established
+The segments drawn between track points could be colored by the
+value in a range of some parameter extracted or computed from
+the track data.  
+The range has to be defined and a correspondence is established
 between the value of the parameter in this range and the color
 from blue through green to red in 12 steps.  
 The parameter could be:
@@ -58,37 +67,54 @@ The parameter could be:
 + "speed km/h" : Horizontal speed. Default range: 0.0 to 10.0.
 + "slope %" : Slope of the track. Default range: -40.0 to 40.0.
 
-Each speed and the slope too are smoothed by computing them from
-points separated by an interval of at least 10 seconds.  
+Each speed is smoothed by computing them from
+points separated by an interval of at least 10 seconds. 
+The slope is smoothed on a difference of altitude of at least 1 m. 
 If no parameter is selected, the segment is red if the altitude is
-rising and blue if sinking.
+rising and blue if sinking.  
+The routes are drawn in black.  
 
-See the [screenshot](Gallery/Menu.jpg).
+![Menu](Gallery/Menu.jpg) 
+
 
 # Mode "Entire"
-This is one of the two modes of display: the track is displayed in
-its entirety and statically.  
+This is one of the two modes of display: the tracks or routes
+are displayed in their entirety and statically.  
 The information field at the bottom right of the Msb2Map screen
 show the minimum and the maximum value encountered for the
 parameter that has been used for the color (or the altitude).
 
-See the [screenshot](Gallery/Entire.jpg).
+![Entire](Gallery/Entire.jpg)
 
 # Mode "Vapor Trail"
-The track is drawn progressively as a vanishing vapor trail,
+This mode is only applicable to the tracks. If a route has to
+be displayed, the "Entire" mode is applied.  
+The tracks are drawn progressively as a vanishing vapor trail,
 at a speed approximately equivalent to the recording speed.
 This speed could be accelerated by a factor 2 or 10.  
-It is possible to skip some parts by blocks of 2 or 10 minutes.
+It is possible to skip some parts initially of the first track
+by blocks of 2 or 10 minutes.
 
 The drawing could be suspended by returning to Vtrk from Msb2Map,
 letting you change the color scheme, change the speed or skip
 some portion and continuing from the point of suspension.  
 Position in the progression is reset to the start
 of the file when using the "Entire" mode.  
-The information field of Msb2Map show the current value of the
-parameter that is used for the color (or the altitude).
+The information field of Msb2Map shows the current value of the
+parameter that is used for the color (or the altitude).  
+There is a marker with a form of reticle at the current
+position: taping on this marker shows the current altitude.
 
-See the [screenshot](Gallery/VaporTrail.jpg).
+![VaporTrail](Gallery/VaporTrail.jpg)
+
+# Waypoints
+All waypoints are displayed, whatever the mode, as markers
+with the form of a diabolo. Taping on a marker display the name
+of the waypoint.  
+A waypoint is generated at the start of each track or route and has
+the name of its element.
+
+![RouteAndWpt](Gallery/RouteAndWpt.jpg)
 
 
 

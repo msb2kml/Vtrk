@@ -36,9 +36,9 @@ public class navDir {
     }
 
     public String dnDir(String down){
-        if (!curDir.equals("/")) {
+        if (!curDir.equals("/") && !down.startsWith("/")) {
             curDir+="/";
-        }
+        } else curDir="";
         if (down.endsWith("/")){
             curDir+=down.substring(0,down.length()-1);
         } else curDir+=down;
@@ -64,6 +64,7 @@ public class navDir {
     }
 
     public String[] get(){
+        if (curDir==null) curDir="/";
         File dir=new File(curDir);
         if (curDir.equals("/") || !dir.exists() || !dir.isDirectory()) {
             if (rmvPath!=null){

@@ -30,7 +30,7 @@ public class Selector extends AppCompatActivity {
             if (!f.exists() || !f.isDirectory() || !f.canRead()) rmvPath=null;
         }
         nav=new navDir(exPath,rmvPath);
-        if (currentDir==null) currentDir=exPath;
+//        if (currentDir==null) currentDir=exPath;
         nav.setCurDir(currentDir);
         String Mask=intent.getStringExtra("Mask");
         nav.setMask(Mask);
