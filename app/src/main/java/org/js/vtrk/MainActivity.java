@@ -1,6 +1,7 @@
 package org.js.vtrk;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -20,6 +21,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
@@ -29,11 +31,19 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.lang.ref.WeakReference;
 import java.text.NumberFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -56,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
     Button bStop;
     Button bSelect;
     Button bEntire;
+    Button bWpt;
+    Button bRte;
     Button bcolBy;
     EditText etRed;
     EditText etBlue;
@@ -92,27 +104,31 @@ public class MainActivity extends AppCompatActivity {
     Double valRed=null;
     Double minVal=null;
     Double maxVal=null;
+    Double totDist=null;
     static int colNone=0;
     static int colHeight=1;
     static int colMpS=2;
     static int colMpH=3;
     static int colKpH=4;
     static int colSlp=5;
-    String[] defBlue={"-","-200.0","-2.0","-400.0","0.0","-40.0"};
-    String[] defRed={"-","200.0","2.0","400.0","10.0","40.0"};
+    static int colDist=6;
+    String[] defBlue={"-","-200.0","-2.0","-400.0","0.0","-40.0","0.0"};
+    String[] defRed={"-","200.0","2.0","400.0","10.0","40.0","10.0"};
     Integer colSrc=colNone;
     String[] head={ " - (none) ",
                     " height above start ",
                     " climb rate m/s ",
                     " climb rate m/h ",
                     " speed km/h ",
-                    " slope %"};
+                    " slope %",
+                    " distance "};
     String[] Labels={"Alt.",
                      "Height",
                      "m/s",
                      "m/h",
                      "km/h",
-                     "%"};
+                     "%",
+                     "Km"};
     Integer[] lineColor={ Color.rgb(0x00,0x00,0xFF),
                           Color.rgb(0x00,0x63,0xF3),
                           Color.rgb(0x00,0x92,0xDE),
@@ -127,6 +143,16 @@ public class MainActivity extends AppCompatActivity {
                           Color.rgb(0xFF,0x00,0x00)};
     int nColor=lineColor.length;
     LinkedList<Location> stack=new LinkedList<>();
+    Boolean picking=false;
+    class NamedLoc {
+        String name;
+        Location loc;
+    }
+    Map<Integer,NamedLoc> picked=new HashMap();
+    Boolean asWpt=true;
+    String pkdRteName=null;
+    gpxGen gpx;
+    WeakReference<MainActivity> mAct;
 
     Haversine haver=new Haversine();
 
@@ -154,6 +180,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         context=getApplicationContext();
+        mAct=new WeakReference<MainActivity>(this);
         fetchPref();
         PackageManager Pm=getPackageManager();
         List<PackageInfo> allPack=Pm.getInstalledPackages(0);
@@ -202,17 +229,18 @@ public class MainActivity extends AppCompatActivity {
         super.onStart();
         String state = Environment.getExternalStorageState();
         Boolean mountedSD = state.contains(Environment.MEDIA_MOUNTED);
-        if (!mountedSD) {
+        Boolean ronlySD=Environment.MEDIA_MOUNTED_READ_ONLY.equals(state);
+        if (!mountedSD || ronlySD) {
             Toast.makeText(context, exPath + " not mounted!", Toast.LENGTH_LONG).show();
             finish();
         }
         Boolean hasPermission = (ContextCompat.checkSelfPermission(context,
-                    Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
         if (!hasPermission) {
             Toast.makeText(context,
-                        "This application need to read " + exPath, Toast.LENGTH_LONG).show();
+                        "This application need to read/write " + exPath, Toast.LENGTH_LONG).show();
             ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 100);
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
         } else start1();
     }
 
@@ -238,7 +266,94 @@ public class MainActivity extends AppCompatActivity {
             running = false;
             runningMap = false;
 //            Toast.makeText(context, "Return from map", Toast.LENGTH_LONG).show();
+            if (picking){
+                unregisterReceiver(pReceiver);
+                prcsPick();
+            }
         }
+    }
+
+    void prcsPick(){
+        SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
+        Calendar now=Calendar.getInstance();
+        pkdRteName=null;
+        final String defName=sdf.format(now.getTime());
+        Integer nbLoc=picked.size();
+        if (nbLoc<1){
+            Toast.makeText(context,"No registered location!",Toast.LENGTH_LONG).show();
+            picking=false;
+            return;
+        }
+        if (asWpt){
+            Toast.makeText(context,nbLoc.toString()+" registered waypoints",
+                    Toast.LENGTH_LONG).show();
+            recordWR();
+        } else {
+            if (nbLoc<2){
+                Toast.makeText(context,"At least 2 points for a route!",
+                        Toast.LENGTH_LONG).show();
+                picking=false;
+                return;
+            }
+            Double totLn=0.0;
+            SortedSet<Integer> keys=new TreeSet<>();
+            keys.addAll(picked.keySet());
+            Iterator<Integer> itr=keys.iterator();
+            NamedLoc namedLoc=null;
+            Integer indx=null;
+            Location loc=null;
+            indx=itr.next();
+            namedLoc=picked.get(indx);
+            Location prevLoc=namedLoc.loc;
+            while (itr.hasNext()){
+                indx=itr.next();
+                namedLoc=picked.get(indx);
+                loc=namedLoc.loc;
+                totLn+=haver.lHaversine(prevLoc,loc);
+                prevLoc=loc;
+            }
+            String km=String.format(Locale.ENGLISH,"length: %.1g km",totLn);
+            AlertDialog.Builder builder=new AlertDialog.Builder(this);
+            builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    finish();
+                }
+            });
+            View rteDiag=View.inflate(this,R.layout.route,null);
+            TextView vRteNb=rteDiag.findViewById(R.id.rteNb);
+            final EditText vRteName=rteDiag.findViewById(R.id.rteName);
+            vRteNb.setText("Set a significative route name like \"From Thonon to Menton\"");
+            vRteName.setHint(defName);
+            builder.setView(rteDiag)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        pkdRteName=vRteName.getText().toString();
+                        if (pkdRteName!=null) pkdRteName=pkdRteName.trim();
+                        if (pkdRteName==null || pkdRteName.isEmpty()) pkdRteName=defName;
+                        InputMethodManager imm = (InputMethodManager)
+                                context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+                        imm.hideSoftInputFromWindow(vRteName.getWindowToken(),0);
+                        picking=false;
+                        recordWR();
+                    }
+                })
+                .setTitle("Route: "+nbLoc+" points ("+km+")");
+            builder.show();
+        }
+        picking=false;
+    }
+
+
+
+    void recordWR(){
+        gpx=new gpxGen();
+        gpx.outChoice(mAct,Directory,filePath,asWpt,pkdRteName,picked);
+    }
+
+    void recordWR0(){
+        if (filePath==null) selGpx();
     }
 
     @Override
@@ -247,13 +362,52 @@ public class MainActivity extends AppCompatActivity {
             case 2:
                 if (resultCode==RESULT_OK){
                     filePath=data.getStringExtra("Path");
-                    if (filePath==null || filePath.isEmpty()) finish();
+                    if (filePath==null || filePath.isEmpty()) nkdPick();
                     else {
-                        start2();
+                        start2(filePath);
                     }
-                } else finish();
+                } else nkdPick();
+                break;
+            case 3:
+                if (resultCode==RESULT_OK) {
+                    String fGpx = data.getStringExtra("Path");
+                    gpx.ckOver(fGpx);
+                } else selGpx();
                 break;
         }
+    }
+
+    void nkdPick(){
+        AlertDialog.Builder build=new AlertDialog.Builder(this);
+        build.setMessage("Preparation of new route/waypoints ?")
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
+                        finish();
+                    }
+                })
+                .setTitle("New GPX file")
+                .setNeutralButton("NO", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+                })
+                .setPositiveButton("Waypoints", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        asWpt=true;
+                        initPick();
+                    }
+                })
+                .setNegativeButton("Route", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        asWpt=false;
+                        initPick();
+                    }
+                });
+        build.show();
     }
 
     public void start1(){
@@ -272,6 +426,8 @@ public class MainActivity extends AppCompatActivity {
         bStop=(Button) findViewById(R.id.stop);
         bSelect=(Button) findViewById(R.id.selGpx);
         bEntire=(Button) findViewById(R.id.entire);
+        bWpt =(Button) findViewById(R.id.wpt);
+        bRte=(Button) findViewById(R.id.rte);
         bcolBy=(Button) findViewById(R.id.colBy);
         etBlue=(EditText) findViewById(R.id.blueVal);
         etRed=(EditText) findViewById(R.id.redVal);
@@ -313,7 +469,54 @@ public class MainActivity extends AppCompatActivity {
                 }
                 running=true;
                 dispatch(0);
-//                entireTrack();
+            }
+        });
+        bWpt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (colSrc!=colNone){
+                    if (!getValCol()){
+                        Toast.makeText(context,"Please check the Blue and Red values.",
+                             Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                Tail=false;
+                nbWpt =0;
+                nbTrk=0;
+                nbRte=0;
+                if (track!=null){
+                    track.close();
+                    track=null;
+                }
+                running=true;
+                picking=true;
+                asWpt=true;
+                dispatch(0);
+            }
+        });
+        bRte.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (colSrc!=colNone){
+                    if (!getValCol()){
+                        Toast.makeText(context,"Please check the Blue and Red values.",
+                             Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                Tail=false;
+                nbWpt =0;
+                nbTrk=0;
+                nbRte=0;
+                if (track!=null){
+                    track.close();
+                    track=null;
+                }
+                running=true;
+                picking=true;
+                asWpt=false;
+                dispatch(0);
             }
         });
         bSkp0.setOnClickListener(new View.OnClickListener() {
@@ -370,7 +573,7 @@ public class MainActivity extends AppCompatActivity {
         if (filePath==null) {
             selGpx();
         } else {
-            start2();
+            start2(filePath);
         }
     }
 
@@ -386,7 +589,9 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(MainActivity.this, Selector.class);
         intent.putExtra("CurrentDir", Directory);
         intent.putExtra("WithDir", false);
-        intent.putExtra("Mask", ".+\\.gpx");
+        intent.putExtra("Mask", "(?i).+\\.gpx");
+        intent.putExtra("Title","Read from ");
+        if (filePath!=null) intent.putExtra("Previous",filePath);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivityForResult(intent, 2);
     }
@@ -481,8 +686,9 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    public void start2(){
+    public void start2(String path){
         String note;
+        filePath=path;
         File f=new File(filePath);
         Location first=introTyp();
         if (first==null){
@@ -543,6 +749,7 @@ public class MainActivity extends AppCompatActivity {
         }
         minVal=null;
         maxVal=null;
+        totDist=null;
         return firstLoc;
     }
 
@@ -575,6 +782,7 @@ public class MainActivity extends AppCompatActivity {
         running=false;
         Toast.makeText(context,"END OF FILE",Toast.LENGTH_LONG).show();
         track=null;
+        if (picking) initPick();
     }
 
     public Location skip(Location currentLoc){
@@ -690,8 +898,8 @@ public class MainActivity extends AppCompatActivity {
                     return dist / dif.doubleValue() * 1000.0 * 3600.0;
                 }
             }
-        } else if (colSrc==colSlp){
-            if (alt==null) return null;
+        } else if (colSrc==colSlp) {
+            if (alt == null) return null;
             else {
                 Location refLoc = smooth(thisLoc);
                 if (refLoc == null) return null;
@@ -703,11 +911,54 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
+        } else if (colSrc==colDist){
+            if (totDist==null) totDist=0.0;
+            if (prevLoc!=null) {
+                Double dis = haver.lHaversine(prevLoc, thisLoc);
+                totDist += dis;
+            }
+            prevLoc=thisLoc;
+            return totDist;
         } else return null;
     }
 
+    void initPick(){
+        picking=true;
+        picked.clear();
+        if (!runningMap){
+            launchMap();
+            return;
+        }
+        Intent nt = new Intent();
+        nt.setAction("org.js.LOC");
+        nt.putExtra("PICKING",picking);
+        nt.putExtra("PICKWPT",asWpt);
+        registerReceiver(pReceiver,filterPick);
+        sendBroadcast(nt);
+    }
+
+    IntentFilter filterPick=new IntentFilter("org.js.PICKED");
+    private final BroadcastReceiver pReceiver=new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Integer index=intent.getIntExtra("INDEX",0);
+            String name=intent.getStringExtra("NAME");
+            Location loc=(Location)intent.getParcelableExtra("LOC");
+            if (loc==null) picked.remove(index);
+            else {
+                NamedLoc nl=new NamedLoc();
+                nl.name=name;
+                nl.loc=loc;
+                picked.put(index,nl);
+            }
+        }
+    };
+
     void dispatch(int from){
-        if (!running) return;
+        if (!running){
+            if (picking) initPick();
+            return;
+        }
         if (track==null){
             dispLoc=initTrack();
             if (dispLoc==null){
@@ -784,7 +1035,7 @@ public class MainActivity extends AppCompatActivity {
                 case WPT:
                     if (entity!=curEntity) return false;
                     nbWpt++;
-                    dispWpt(dispLoc,null);
+                    dispWpt(dispLoc, String.format(Locale.ENGLISH,"%d waypoints",nbWpt));
                     break;
                 case TRKWPT:
                 case RTEWPT:
@@ -804,8 +1055,11 @@ public class MainActivity extends AppCompatActivity {
                                 maxAlt=minAlt;
                             }
                         }
+                        startTime=startLoc.getTime();
                         startLine=true;
                         prevAlt=null;
+                        prevLoc=null;
+                        totDist=null;
                     }
                     dispTrk(dispLoc,false);
                     if (setStart){
@@ -813,7 +1067,6 @@ public class MainActivity extends AppCompatActivity {
                         dispWpt(startLoc,String.valueOf(nbRte)+": "+ curEntName);
                         setStart=false;
                     }
-                    prevLoc=dispLoc;
                     curEntity=entity;
                     break;
                 case TRK:
@@ -827,8 +1080,11 @@ public class MainActivity extends AppCompatActivity {
                                 maxAlt=minAlt;
                             }
                         }
+                        startTime=startLoc.getTime();
                         startLine=true;
                         prevAlt=null;
+                        prevLoc=null;
+                        totDist=null;
                     }
                     dispTrk(dispLoc,false);
                     if (setStart){
@@ -836,7 +1092,6 @@ public class MainActivity extends AppCompatActivity {
                         dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName);
                         setStart=false;
                     }
-                    prevLoc=dispLoc;
                     curEntity=entity;
                     break;
             }
@@ -896,6 +1151,8 @@ public class MainActivity extends AppCompatActivity {
             }
             startLine=true;
             prevAlt=null;
+            prevLoc=null;
+            totDist=null;
         }
         dispTrk(dispLoc,true);
         if (setStart){
@@ -903,7 +1160,6 @@ public class MainActivity extends AppCompatActivity {
             dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName);
             setStart=false;
         }
-        prevLoc=dispLoc;
         curEntity=entity;
         lastTrk=dispLoc.getTime();
         Long toWait=0L;

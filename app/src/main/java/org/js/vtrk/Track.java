@@ -229,7 +229,14 @@ public class Track {
                             position+=m.end(2);
                             expr=m.group(1);
                             if (loc==null){
-                                loc=LatLon(expr);
+                                if (!expr.isEmpty() && expr.endsWith("/")){
+                                    loc=LatLon(expr.substring(0,expr.length()-1));
+                                    if (loc!=null){
+                                        loc.getExtras().putSerializable("ENTITY",curEntity);
+                                        curEntity=enttGpx.TRK;
+                                        return loc;
+                                    }
+                                } else loc=LatLon(expr);
                                 if (loc==null) curEntity=enttGpx.TRK;
                                 probe=Pattern.compile(endtrkpt);
                             } else {
@@ -273,7 +280,14 @@ public class Track {
                             position+=m.end(2);
                             expr=m.group(1);
                             if (loc==null){
-                                loc=LatLon(expr);
+                                if (!expr.isEmpty() && expr.endsWith("/")){
+                                    loc=LatLon(expr.substring(0,expr.length()-1));
+                                    if (loc!=null){
+                                        loc.getExtras().putSerializable("ENTITY",curEntity);
+                                        curEntity=enttGpx.TRK;
+                                        return loc;
+                                    }
+                                } else loc=LatLon(expr);
                                 if (loc==null) curEntity=enttGpx.RTE;
                                 probe=Pattern.compile(endrtept);
                             } else {

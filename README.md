@@ -1,30 +1,36 @@
 # Purpose
-This application draws on a background topographic map the tracks,
-routes and waypoints stored in a GPX file.
+This application draws on a topographic map background a mix of tracks,
+routes and waypoints stored in a GPX file. It could also be used
+to create new routes and new waypoints.
 
 The map is displayed by the [Msb2Map](https://github.com/msb2kml/Msb2Map/)
 application driven by Vtrk.  
-Latitude, longitude, altitude and name from the waypoints are processed.
-For the routes, the name and from the route waypoints, the latitude,
-the longitude and eventually the altitude are processed.
-The name of the tracks as well as the latitude, longitude, altitude
-and time for the track waypoints are processed.  
+The processed details are:
+
++ waypoints: latitude, longitude, altitude and name.
++ routes: name of the route and for each waypoint, the latitude and
+ the longitude (eventually the altitude).
++ tracks: name of the track and for each waypoint, the latitude,
+ the longitude, the altitude and the time.
+
 
 Many hiking GPS and GPS applications for smartphones are recording compatible
 files.  
 This application is a spin off of the
-[Msb2Kml](https://github.com/msb2kml/Msb2Kml/) application: its products
-are compatible too.
+[Msb2Kml](https://github.com/msb2kml/Msb2Kml/) application: the GPX
+files that it produce are compatible too.
 
 # Installation
-The application should be compiled from the sources of this repository
-or downloaded from the "Releases" pages. The application package (such as
+The application should be compiled from the sources in this repository
+or downloaded from the
+[Releases](https://github.com/msb2kml/Vtrk/releases) pages.
+The application package (such as
 VtrkXX.apk) should be transferred to the storage of the device
 (such as Downloads). Selecting it with a File manager should offer
 the opportunity to install it.
 
 The Msb2Map application should be independently installed.
-Minimum version 1.4.
+Minimum version 1.5.
 
 # Permissions
 The Vtrk application needs to read the internal and the external storage.  
@@ -32,6 +38,9 @@ The Msb2Map application needs access to the Internet to fetch the
 maps that are kept in a cache.
 
 None of the applications need access to the location of the device.
+
+
+
 
 # File selection
 There is a built in specialized file manager that show, from the
@@ -66,6 +75,7 @@ The parameter could be:
  Default range: -400.0 to 400.0.
 + "speed km/h" : Horizontal speed. Default range: 0.0 to 10.0.
 + "slope %" : Slope of the track. Default range: -40.0 to 40.0.
++ "distance" : cumulated traveled distance (km).
 
 Each speed is smoothed by computing them from
 points separated by an interval of at least 10 seconds. 
@@ -74,7 +84,7 @@ If no parameter is selected, the segment is red if the altitude is
 rising and blue if sinking.  
 The routes are drawn in black.  
 
-![Menu](Gallery/Menu.jpg) 
+![Menu](Documents/Gallery/Menu.jpg) 
 
 
 # Mode "Entire"
@@ -84,7 +94,7 @@ The information field at the bottom right of the Msb2Map screen
 show the minimum and the maximum value encountered for the
 parameter that has been used for the color (or the altitude).
 
-![Entire](Gallery/Entire.jpg)
+![Entire](Documents/Gallery/Entire.jpg)
 
 # Mode "Vapor Trail"
 This mode is only applicable to the tracks. If a route has to
@@ -105,7 +115,7 @@ parameter that is used for the color (or the altitude).
 There is a marker with a form of reticle at the current
 position: taping on this marker shows the current altitude.
 
-![VaporTrail](Gallery/VaporTrail.jpg)
+![VaporTrail](Documents/Gallery/VaporTrail.jpg)
 
 # Waypoints
 All waypoints are displayed, whatever the mode, as markers
@@ -114,7 +124,7 @@ of the waypoint.
 A waypoint is generated at the start of each track or route and has
 the name of its element.
 
-![RouteAndWpt](Gallery/RouteAndWpt.jpg)
+![RouteAndWpt](Documents/Gallery/RouteAndWpt.jpg)
 
 
 

@@ -131,19 +131,44 @@
         app:layout_constraintTop_toBottomOf="@id/progress">
 
         <Button
+            android:id="@+id/wpt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="+ Waypoint"
+            android:textAllCaps="false"
+            android:textStyle="italic"
+            app:layout_constraintBottom_toBottomOf="@id/cEntr"
+            app:layout_constraintEnd_toStartOf="@+id/rte"
+            app:layout_constraintStart_toStartOf="@id/cEntr"
+            app:layout_constraintTop_toTopOf="@id/cEntr" />
+
+        <Button
+            android:id="@+id/rte"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="+ Route"
+            android:textAllCaps="false"
+            android:textStyle="italic"
+            app:layout_constraintBottom_toBottomOf="@id/cEntr"
+            app:layout_constraintEnd_toStartOf="@+id/entire"
+            app:layout_constraintStart_toEndOf="@id/wpt"
+            app:layout_constraintTop_toTopOf="@id/cEntr" />
+
+        <Button
             android:id="@+id/entire"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:layout_marginLeft="24dp"
             android:layout_marginTop="8dp"
-            android:layout_marginEnd="24dp"
-            android:layout_marginRight="24dp"
             android:layout_marginBottom="8dp"
             android:text="Entire"
-            app:layout_constraintEnd_toEndOf="@id/cEntr"
-            app:layout_constraintStart_toStartOf="@id/cEntr"
+            android:textAllCaps="false"
             app:layout_constraintBottom_toBottomOf="@id/cEntr"
+            app:layout_constraintEnd_toEndOf="@id/cEntr"
+            app:layout_constraintStart_toEndOf="@id/rte"
             app:layout_constraintTop_toTopOf="@id/cEntr" />
 
     </android.support.constraint.ConstraintLayout>

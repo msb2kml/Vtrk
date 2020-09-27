@@ -6,8 +6,8 @@ android {
         applicationId 'org.js.vtrk'
         minSdkVersion 16
         targetSdkVersion 26
-        versionCode 11
-        versionName '1.1 Tracks, routes and waypoints'
+        versionCode 12
+        versionName '1.2 Waypoints and routes creation'
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
