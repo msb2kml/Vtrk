@@ -15,7 +15,7 @@ rising and blue for lowering altitude.
 
 + "height above start" : height (m) relative to the first point
  of the track. Default range: -200 to 200.
-+ "climb rate m/s" : vertical speed, more appropriate to a
++ "climb rate m/s" : vertical speed, more appropriate to an
  R/C model or a glider. Default range: -2.0 to 2.0.
 + "climb rate m/h" : vertical speed, appropriate for hiking.
  Default range: -400.0 to 400.0.

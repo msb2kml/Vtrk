@@ -69,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
     Button bWpt;
     Button bRte;
     Button bcolBy;
+    Button bRef;
+    Button bComp;
     EditText etRed;
     EditText etBlue;
     Track track=null;
@@ -95,6 +97,9 @@ public class MainActivity extends AppCompatActivity {
     Track.enttGpx curEntity= Track.enttGpx.ALIEN;
     String curEntName=null;
     String fileName;
+    String refPath =null;
+    String refDirectory =null;
+    Boolean inRef =false;
     Boolean Tail=true;
     Double minAlt=null;
     Double maxAlt=null;
@@ -142,6 +147,7 @@ public class MainActivity extends AppCompatActivity {
                           Color.rgb(0xFF,0x78,0x00),
                           Color.rgb(0xFF,0x00,0x00)};
     int nColor=lineColor.length;
+    int HalfMagenta=Color.argb(0x80,0xFF,0x00,0xFF);
     LinkedList<Location> stack=new LinkedList<>();
     Boolean picking=false;
     class NamedLoc {
@@ -151,29 +157,12 @@ public class MainActivity extends AppCompatActivity {
     Map<Integer,NamedLoc> picked=new HashMap();
     Boolean asWpt=true;
     String pkdRteName=null;
-    gpxGen gpx;
+
+
     WeakReference<MainActivity> mAct;
 
     Haversine haver=new Haversine();
 
-    IntentFilter filter=new IntentFilter("org.js.ACK");
-    private Handler mHandler=new Handler();
-    private Runnable timerTask=new Runnable() {
-        @Override
-        public void run() {
-            dispatch(2);
-        }
-    };
-
-    private final BroadcastReceiver mReceiver=new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String origin=intent.getStringExtra("NAME");
-            unregisterReceiver(mReceiver);
-            waitMap=false;
-            dispatch(1);
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -244,171 +233,6 @@ public class MainActivity extends AppCompatActivity {
         } else start1();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                          String permissions[], int[] grantResults){
-        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
-        if (requestCode==100){
-            if (grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
-                start1();
-            } else finish();
-        }
-    }
-
-    @Override
-    protected void onResume(){
-        super.onResume();
-        fromMap();
-    }
-
-    public void fromMap(){
-        if (runningMap) {
-            running = false;
-            runningMap = false;
-//            Toast.makeText(context, "Return from map", Toast.LENGTH_LONG).show();
-            if (picking){
-                unregisterReceiver(pReceiver);
-                prcsPick();
-            }
-        }
-    }
-
-    void prcsPick(){
-        SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
-        Calendar now=Calendar.getInstance();
-        pkdRteName=null;
-        final String defName=sdf.format(now.getTime());
-        Integer nbLoc=picked.size();
-        if (nbLoc<1){
-            Toast.makeText(context,"No registered location!",Toast.LENGTH_LONG).show();
-            picking=false;
-            return;
-        }
-        if (asWpt){
-            Toast.makeText(context,nbLoc.toString()+" registered waypoints",
-                    Toast.LENGTH_LONG).show();
-            recordWR();
-        } else {
-            if (nbLoc<2){
-                Toast.makeText(context,"At least 2 points for a route!",
-                        Toast.LENGTH_LONG).show();
-                picking=false;
-                return;
-            }
-            Double totLn=0.0;
-            SortedSet<Integer> keys=new TreeSet<>();
-            keys.addAll(picked.keySet());
-            Iterator<Integer> itr=keys.iterator();
-            NamedLoc namedLoc=null;
-            Integer indx=null;
-            Location loc=null;
-            indx=itr.next();
-            namedLoc=picked.get(indx);
-            Location prevLoc=namedLoc.loc;
-            while (itr.hasNext()){
-                indx=itr.next();
-                namedLoc=picked.get(indx);
-                loc=namedLoc.loc;
-                totLn+=haver.lHaversine(prevLoc,loc);
-                prevLoc=loc;
-            }
-            String km=String.format(Locale.ENGLISH,"length: %.1g km",totLn);
-            AlertDialog.Builder builder=new AlertDialog.Builder(this);
-            builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
-                @Override
-                public void onCancel(DialogInterface dialog) {
-                    finish();
-                }
-            });
-            View rteDiag=View.inflate(this,R.layout.route,null);
-            TextView vRteNb=rteDiag.findViewById(R.id.rteNb);
-            final EditText vRteName=rteDiag.findViewById(R.id.rteName);
-            vRteNb.setText("Set a significative route name like \"From Thonon to Menton\"");
-            vRteName.setHint(defName);
-            builder.setView(rteDiag)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        pkdRteName=vRteName.getText().toString();
-                        if (pkdRteName!=null) pkdRteName=pkdRteName.trim();
-                        if (pkdRteName==null || pkdRteName.isEmpty()) pkdRteName=defName;
-                        InputMethodManager imm = (InputMethodManager)
-                                context.getSystemService(Activity.INPUT_METHOD_SERVICE);
-                        imm.hideSoftInputFromWindow(vRteName.getWindowToken(),0);
-                        picking=false;
-                        recordWR();
-                    }
-                })
-                .setTitle("Route: "+nbLoc+" points ("+km+")");
-            builder.show();
-        }
-        picking=false;
-    }
-
-
-
-    void recordWR(){
-        gpx=new gpxGen();
-        gpx.outChoice(mAct,Directory,filePath,asWpt,pkdRteName,picked);
-    }
-
-    void recordWR0(){
-        if (filePath==null) selGpx();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data){
-        switch (requestCode){
-            case 2:
-                if (resultCode==RESULT_OK){
-                    filePath=data.getStringExtra("Path");
-                    if (filePath==null || filePath.isEmpty()) nkdPick();
-                    else {
-                        start2(filePath);
-                    }
-                } else nkdPick();
-                break;
-            case 3:
-                if (resultCode==RESULT_OK) {
-                    String fGpx = data.getStringExtra("Path");
-                    gpx.ckOver(fGpx);
-                } else selGpx();
-                break;
-        }
-    }
-
-    void nkdPick(){
-        AlertDialog.Builder build=new AlertDialog.Builder(this);
-        build.setMessage("Preparation of new route/waypoints ?")
-                .setOnCancelListener(new DialogInterface.OnCancelListener() {
-                    @Override
-                    public void onCancel(DialogInterface dialog) {
-                        finish();
-                    }
-                })
-                .setTitle("New GPX file")
-                .setNeutralButton("NO", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        finish();
-                    }
-                })
-                .setPositiveButton("Waypoints", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        asWpt=true;
-                        initPick();
-                    }
-                })
-                .setNegativeButton("Route", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        asWpt=false;
-                        initPick();
-                    }
-                });
-        build.show();
-    }
 
     public void start1(){
         if (tFile!=null) return;
@@ -431,6 +255,10 @@ public class MainActivity extends AppCompatActivity {
         bcolBy=(Button) findViewById(R.id.colBy);
         etBlue=(EditText) findViewById(R.id.blueVal);
         etRed=(EditText) findViewById(R.id.redVal);
+        bRef =(Button) findViewById(R.id.bBg);
+        bComp=(Button) findViewById(R.id.bComp);
+        refPath =null;
+        bRef.setText("-none-");
         bcolBy.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -570,120 +398,75 @@ public class MainActivity extends AppCompatActivity {
                 mHandler.postDelayed(timerTask,300L);
             }
         });
+        bRef.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                selectRef();
+            }
+        });
+        bComp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, Compose.class);
+                intent.putExtra("pathGPX",filePath);
+                intent.putExtra("Directory",Directory);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivityForResult(intent, 5);
+            }
+        });
         if (filePath==null) {
-            selGpx();
+            taskChoice();
         } else {
             start2(filePath);
         }
     }
 
-    void selGpx(){
-        tTime.setText("0");
-        pBar.setProgress(0);
-        if (track!=null) track.close();
-        nbWpt =0;
-        nbRte=0;
-        nbTrk=0;
-        running=false;
-        track=null;
-        Intent intent = new Intent(MainActivity.this, Selector.class);
-        intent.putExtra("CurrentDir", Directory);
-        intent.putExtra("WithDir", false);
-        intent.putExtra("Mask", "(?i).+\\.gpx");
-        intent.putExtra("Title","Read from ");
-        if (filePath!=null) intent.putExtra("Previous",filePath);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivityForResult(intent, 2);
-    }
-
-    Location introTyp(){
-        Track.enttGpx entity;
-        if (track!=null) track.close();
-        Location first=initTrack();
-        if (first==null) return null;
-        Track.enttGpx first_ent=(Track.enttGpx) first.getExtras().getSerializable("ENTITY");
-        Long position=track.getPos();
-        Location chlngr=first;
-        while (position<3000 && chlngr!=null){
-            entity=(Track.enttGpx) chlngr.getExtras().getSerializable("ENTITY");
-            switch (entity){
-                case TRK:
-                case RTE:
-                    track.close();
-                    track=null;
-                    return chlngr;
-                case WPT:
-                    if (first_ent!=Track.enttGpx.WPT){
-                        first=chlngr;
-                        first_ent=entity;
-                    }
-                    break;
-            }
-            chlngr=readTrk();
-            position=track.getPos();
-        }
-        track.close();
-        track=null;
-        return first;
-    }
-
-    void selectCol(){
+    void taskChoice(){
+        String[] tasks={"Display a GPX file",
+                        "Create waypoints",
+                         "Create a route",
+                         "Selective merge of GPX files"};
         AlertDialog.Builder build=new AlertDialog.Builder(this);
-        build.setTitle("Select a method for coloring")
+        build.setTitle("Task selector")
                 .setOnCancelListener(new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialog) {
-                        setColorz(null);
+                        finish();
                     }
                 })
-                .setItems(head, new DialogInterface.OnClickListener() {
+                .setItems(tasks, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        setColorz(which);
+                        switch (which){
+                            case 0:
+                                selGpx();
+                                break;
+                            case 1:
+                                asWpt=true;
+                                initPick();
+                                break;
+                            case 2:
+                                asWpt=false;
+                                initPick();
+                                break;
+                            case 3:
+                                Intent intent = new Intent(MainActivity.this,
+                                        Compose.class);
+                                intent.putExtra("pathGPX",filePath);
+                                intent.putExtra("Directory",Directory);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                                startActivityForResult(intent, 5);
+                                break;
+                        }
+                    }
+                })
+                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
                     }
                 });
         build.show();
-    }
-
-    void setColorz(Integer which){
-        if (which==null) return;
-        bcolBy.setText(head[which]);
-        colSrc=which;
-        if (colSrc==colNone){
-            etBlue.setEnabled(false);
-            etRed.setEnabled(false);
-        } else {
-            etBlue.setEnabled(true);
-            etRed.setEnabled(true);
-        }
-        etBlue.setText(defBlue[colSrc]);
-        etRed.setText(defRed[colSrc]);
-    }
-
-    Boolean getValCol(){
-        String field;
-        NumberFormat nfe=NumberFormat.getInstance(Locale.ENGLISH);
-        Number num;
-        valBlue=null;
-        valRed=null;
-        field=etBlue.getText().toString();
-        if (field!=null) field=field.trim();
-        if (field==null || field.isEmpty()){ return false; }
-        try {
-            num=nfe.parse(field);
-            valBlue=num.doubleValue();
-        } catch (ParseException e) {return false;}
-        defBlue[colSrc]=field;
-        field=etRed.getText().toString();
-        if (field!=null) field=field.trim();
-        if (field==null || field.isEmpty()){ return false; }
-        try {
-            num=nfe.parse(field);
-            valRed=num.doubleValue();
-        } catch (ParseException e) {return false; }
-        defRed[colSrc]=field;
-        if (Math.abs(valBlue-valRed)<0.001f) return false;
-        return true;
     }
 
     public void start2(String path){
@@ -718,38 +501,105 @@ public class MainActivity extends AppCompatActivity {
         putPref();
     }
 
-    public void getSpeed(){
-        int id=rSpeed.getCheckedRadioButtonId();
-        switch (id){
-            case R.id.sp1:
-                divisor=1l;
-                break;
-            case R.id.sp2:
-                divisor=2l;
-                break;
-            case R.id.sp10:
-                divisor=10l;
-                break;
+    void launchMap(Location centerLoc){
+        stack.clear();
+        setStart=true;
+        Intent nt=(Intent) intentMap.clone();
+        nt.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        nt.putExtra("CALLER",context.getString(R.string.app_name));
+        nt.putExtra("CENTER",centerLoc);
+        nt.putExtra("Tail",Tail);
+        if (zoom!=null) nt.putExtra("ZOOM",zoom);
+        zoom=null;
+        runningMap=true;
+        startActivity(nt);
+        waitMap=true;
+        registerReceiver(mReceiver,filter);
+        return;
+    }
+
+    void ckVcMap(int vc){
+        if (vc<16){
+            Toast.makeText(context,"Msb2Map revision should be at least 1.6",
+                    Toast.LENGTH_LONG).show();
         }
     }
 
-    Location initTrack(){
-        Location firstLoc=null;
+///////////////////       DRAWING
+
+    Location introTyp(){
+        Track.enttGpx entity;
         if (track!=null) track.close();
-        track=new Track();
-        size=track.open(filePath);
-        nbWpt =0;
-        nbRte=0;
-        nbTrk=0;
-        firstLoc=readTrk();
-        if (firstLoc==null){
-            eof();
-            Toast.makeText(context,"No valid item in "+fileName,Toast.LENGTH_LONG).show();
+        Location first=initTrack();
+        if (first==null) return null;
+        Track.enttGpx first_ent=(Track.enttGpx) first.getExtras().getSerializable("ENTITY");
+        Long position=track.getPos();
+        Location chlngr=first;
+        while (position<3000 && chlngr!=null){
+            entity=(Track.enttGpx) chlngr.getExtras().getSerializable("ENTITY");
+            switch (entity){
+                case TRK:
+                case RTE:
+                    track.close();
+                    track=null;
+                    return chlngr;
+                case WPT:
+                    if (first_ent!=Track.enttGpx.WPT){
+                        first=chlngr;
+                        first_ent=entity;
+                    }
+                    break;
+            }
+            chlngr=readTrk();
+            position=track.getPos();
+        }
+        track.close();
+        track=null;
+        return first;
+    }
+
+    Boolean getValCol(){
+        String field;
+        NumberFormat nfe=NumberFormat.getInstance(Locale.ENGLISH);
+        Number num;
+        valBlue=null;
+        valRed=null;
+        field=etBlue.getText().toString();
+        if (field!=null) field=field.trim();
+        if (field==null || field.isEmpty()){ return false; }
+        try {
+            num=nfe.parse(field);
+            valBlue=num.doubleValue();
+        } catch (ParseException e) {return false;}
+        defBlue[colSrc]=field;
+        field=etRed.getText().toString();
+        if (field!=null) field=field.trim();
+        if (field==null || field.isEmpty()){ return false; }
+        try {
+            num=nfe.parse(field);
+            valRed=num.doubleValue();
+        } catch (ParseException e) {return false; }
+        defRed[colSrc]=field;
+        if (Math.abs(valBlue-valRed)<0.001f) return false;
+        return true;
+    }
+
+    Location initTrack() {
+        Location firstLoc = null;
+        if (track != null) track.close();
+        track = new Track();
+        size = track.open(filePath);
+        nbWpt = 0;
+        nbRte = 0;
+        nbTrk = 0;
+        firstLoc = readTrk();
+        if (firstLoc == null) {
+            Toast.makeText(context, "No valid item in " + fileName, Toast.LENGTH_LONG).show();
             return null;
         }
-        minVal=null;
-        maxVal=null;
-        totDist=null;
+        minVal = null;
+        maxVal = null;
+        totDist = null;
         return firstLoc;
     }
 
@@ -766,36 +616,51 @@ public class MainActivity extends AppCompatActivity {
             position = track.getPos();
             Float prog = (100.0f * Float.valueOf(position)) / Float.valueOf(size);
             pBar.setProgress(prog.intValue());
-            if (startTime != null && loc.getTime() != 0L) {
+            if (startTime != null && startTime>0L && loc.getTime() != 0L) {
                 Long sec = (loc.getTime() - startTime) / 1000L;
                 Long hour = sec / 3600L;
                 Long min = (sec - hour * 3600L) / 60L;
                 Long s = (sec - hour * 3600L - min * 60L);
                 tTime.setText(String.format("%02d:%02d:%02d", hour, min, s));
-            }
+            } else tTime.setText("0");
             return loc;
         }
     }
 
     void eof(){
         track.close();
-        running=false;
-        Toast.makeText(context,"END OF FILE",Toast.LENGTH_LONG).show();
-        track=null;
-        if (picking) initPick();
+        if (inRef && saved!=null){
+            track=saved.track;
+            dispLoc=saved.dispLoc;
+            curEntity=saved.curEntity;
+            startLoc=saved.startLoc;
+            curEntName=saved.curEntName;
+            saved=null;
+            inRef =false;
+            setStart=true;
+            dispatch(5);
+        } else {
+            running = false;
+            Toast.makeText(context, "END OF FILE", Toast.LENGTH_LONG).show();
+            track = null;
+            if (picking) initPick();
+        }
     }
 
     public Location skip(Location currentLoc){
         Location loc;
         if (toSkip==0l || currentLoc.getTime()==0L) return currentLoc;
         loc=currentLoc;
-        Long target=currentLoc.getTime()+toSkip;
-        while (loc.getTime()<target){
+        Long here=currentLoc.getTime();
+        Long target=here+toSkip;
+        while (here<target){
             loc=readTrk();
             if (loc==null ||
                     loc.getExtras().getSerializable("ENTITY")!=Track.enttGpx.TRKWPT){
                 toSkip=0L;
                 return loc;
+            } else {
+                here=loc.getTime();
             }
         }
         toSkip=0L;
@@ -836,24 +701,6 @@ public class MainActivity extends AppCompatActivity {
         int v=(int)Math.round(norm*nColor);
         v=Math.max(1,Math.min(nColor,v))-1;
         return lineColor[v];
-    }
-
-    void launchMap(){
-        stack.clear();
-        setStart=true;
-        Intent nt=(Intent) intentMap.clone();
-        nt.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        nt.putExtra("CALLER",context.getString(R.string.app_name));
-        nt.putExtra("CENTER",centerLoc);
-        nt.putExtra("StartGPS",false);
-        nt.putExtra("Tail",Tail);
-        if (zoom!=null) nt.putExtra("ZOOM",zoom);
-        zoom=null;
-        runningMap=true;
-        startActivity(nt);
-        waitMap=true;
-        registerReceiver(mReceiver,filter);
-        return;
     }
 
     Double getVal(Location thisLoc){
@@ -922,11 +769,521 @@ public class MainActivity extends AppCompatActivity {
         } else return null;
     }
 
+    void dispatch(int from){
+        if (!running){
+            if (picking) initPick();
+            return;
+        }
+        if (track==null){
+            dispLoc=initTrack();
+            if (dispLoc==null){
+                eof();
+                selGpx();
+                return;
+            }
+        }
+        while (dispLoc!=null) {
+            Track.enttGpx entity = (Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+            if (!inRef && Tail && (entity == Track.enttGpx.TRK || entity == Track.enttGpx.TRKWPT)) {
+                if (withTail()) return;
+            } else {
+                if (noTail()) return;
+            }
+        }
+        eof();
+    }
+
+    Boolean noTail() {
+        if (dispLoc == null) return true;
+        int nbBroadcast = 0;
+        Track.enttGpx entity = (Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+        switch (entity) {
+            case WPT:
+                curEntity = entity;
+            case RTEWPT:
+            case TRKWPT:
+                if (!runningMap) {
+//                    centerLoc=dispLoc;
+                    launchMap(dispLoc);
+                    return true;
+                }
+                break;
+            case TRK:
+                curEntName = "Track " + dispLoc.getExtras().getString("name", null);
+                setStart = true;
+                startLoc = null;
+                stack.clear();
+                minVal = null;
+                maxVal = null;
+                minAlt = null;
+                maxAlt = null;
+                curEntity = entity;
+                dispLoc = readTrk();
+                return false;
+            case RTE:
+                curEntName = "Route " + dispLoc.getExtras().getString("name", null);
+                setStart = true;
+                startLoc = null;
+                stack.clear();
+                minVal = null;
+                maxVal = null;
+                minAlt = null;
+                maxAlt = null;
+                curEntity = entity;
+                dispLoc = readTrk();
+                return false;
+            case ALIEN:
+                track.close();
+                Toast.makeText(context, "Sorry, " + fileName + " is not compatible.",
+                        Toast.LENGTH_LONG).show();
+                eof();
+                selGpx();
+                return true;
+
+        }
+        while (true) {
+            nbBroadcast++;
+            if (nbBroadcast > 100) {
+                mHandler.postDelayed(timerTask, 100L);
+                return true;
+            }
+            entity = (Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+            switch (curEntity) {
+                case WPT:
+                    if (entity != curEntity) return false;
+                    nbWpt++;
+                    int tp=0;
+                    if (inRef) tp=2;
+                    dispWpt(dispLoc, String.format(Locale.ENGLISH, "%d waypoints", nbWpt),
+                            tp);
+                    break;
+                case TRKWPT:
+                case RTEWPT:
+                    if (entity != curEntity) {
+                        return false;
+                    }
+                    dispTrk(dispLoc, false);
+                    break;
+                case RTE:
+                    if (entity != Track.enttGpx.RTEWPT) return false;
+                    if (setStart) {
+                        if (startLoc == null) {
+                            startLoc = dispLoc;
+                            startLoc.getExtras().putString("name", curEntName);
+                            if (startLoc.hasAltitude()) {
+                                minAlt = startLoc.getAltitude();
+                                maxAlt = minAlt;
+                            }
+                        }
+                        if (!inRef) startTime = startLoc.getTime();
+                        startLine = true;
+                        prevAlt = null;
+                        prevLoc = null;
+                        totDist = null;
+                    }
+                    dispTrk(dispLoc, false);
+                    if (setStart) {
+                        nbRte++;
+                        dispWpt(startLoc, String.valueOf(nbRte) + ": " + curEntName, 1);
+                        setStart = false;
+                    }
+                    curEntity = entity;
+                    break;
+                case TRK:
+                    if (entity != Track.enttGpx.TRKWPT) return false;
+                    if (setStart) {
+                        if (startLoc == null) {
+                            startLoc = dispLoc;
+                            startLoc.getExtras().putString("name", curEntName);
+                            if (startLoc.hasAltitude()) {
+                                minAlt = startLoc.getAltitude();
+                                maxAlt = minAlt;
+                            }
+                        }
+                        if (!inRef) startTime = startLoc.getTime();
+                        startLine = true;
+                        prevAlt = null;
+                        prevLoc = null;
+                        totDist = null;
+                    }
+                    dispTrk(dispLoc, false);
+                    if (setStart) {
+                        nbTrk++;
+                        dispWpt(startLoc, String.valueOf(nbTrk) + ": " + curEntName, 1);
+                        setStart = false;
+                    }
+                    curEntity = entity;
+                    break;
+            }
+            if (!runningMap) return true;
+            dispLoc = readTrk();
+            if (dispLoc == null) {
+                return false;
+            }
+        }
+    }
+
+    Boolean withTail(){
+        if (dispLoc==null || !Tail) return false;
+        Track.enttGpx entity=(Track.enttGpx)dispLoc.getExtras().getSerializable("ENTITY");
+        switch (entity){
+            case TRKWPT:
+                if (setStart){
+                    if (startLoc==null){
+                        if (dispLoc.getTime()==0L || !dispLoc.hasAltitude()){
+                            Tail=false;
+                            return false;
+                        }
+                        startLoc=dispLoc;
+                        startTime=startLoc.getTime();
+                        startLoc.getExtras().putString("name",curEntName);
+                        minAlt=startLoc.getAltitude();
+                        maxAlt=minAlt;
+                    }
+                    startLine=true;
+                    prevAlt=null;
+                    prevLoc=null;
+                    totDist=null;
+                }
+                if (toSkip>0){
+                    dispLoc=skip(dispLoc);
+                    if (dispLoc==null) return false;
+                    entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+                    if (entity!= Track.enttGpx.TRKWPT) return false;
+                }
+                if (!runningMap){
+                    centerLoc=dispLoc;
+                    launchMap(dispLoc);
+                    return true;
+                }
+                break;
+            case TRK:
+                curEntName="Track "+dispLoc.getExtras().getString("name",null);
+                setStart=true;
+                startLoc=null;
+                stack.clear();
+                minVal=null;
+                maxVal=null;
+                minAlt=null;
+                maxAlt=null;
+                curEntity=entity;
+                dispLoc=readTrk();
+                return false;
+            default:
+                return false;
+        }
+        if (entity!= Track.enttGpx.TRKWPT) return false;
+        dispTrk(dispLoc,true);
+        if (setStart){
+            nbTrk++;
+            dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName,1);
+            setStart=false;
+        }
+        curEntity=entity;
+        lastTrk=dispLoc.getTime();
+        Long toWait=0L;
+        while (toWait<300L){
+            dispLoc=readTrk();
+            if (dispLoc==null) return false;
+            entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
+            if (entity!=Track.enttGpx.TRKWPT) return false;
+            if (dispLoc.getTime()>0L) toWait=(dispLoc.getTime()-lastTrk)/divisor;
+        }
+        mHandler.postDelayed(timerTask,toWait);
+        return true;
+    }
+
+    void dispWpt(Location loc, String infoBubble, int typ) {
+        Intent nt = new Intent();
+        nt.setAction("org.js.LOC");
+        nt.putExtra("WPT", loc);
+        String namWpt = loc.getExtras().getString("name", "?");
+        nt.putExtra("TYPE", typ);
+        if (infoBubble == null) {
+            if (loc.hasAltitude()) {
+                namWpt = String.format(Locale.ENGLISH, "%s (%.1f)",
+                        loc.getExtras().getString("name", "?"), loc.getAltitude());
+            }
+            nt.putExtra("BUBBLE", namWpt);
+        } else {
+            nt.putExtra("BUBBLE", infoBubble);
+        }
+        nt.putExtra("WPT_NAME", namWpt);
+        sendBroadcast(nt);
+    }
+
+    void dispTrk(Location loc, Boolean actTail){
+        Double val=0.0;
+        String label="";
+        Integer col=Color.BLACK;
+        String bubbleMap=" - ";
+        Intent nt=new Intent();
+        label=Labels[colSrc];
+        if (inRef) col=HalfMagenta;
+        else {
+            val = getVal(loc);
+            if (val == null) {
+                col = Color.BLACK;
+                val = 0.0;
+            } else {
+                if (colSrc == colNone) {
+                    if (prevAlt == null || val > prevAlt) {
+                        col = Color.rgb(0xFF, 0x00, 0x00);
+                    } else {
+                        col = Color.rgb(0x00, 0x00, 0xFF);
+                    }
+                    prevAlt = val;
+                } else {
+                    col = colorz(val);
+                }
+                if (minVal == null) {
+                    minVal = val;
+                    maxVal = val;
+                } else {
+                    minVal = Math.min(minVal, val);
+                    maxVal = Math.max(maxVal, val);
+                }
+            }
+            if (minVal == null || maxVal == null) {
+                bubbleMap = null;
+            } else {
+                if (actTail) {
+                    bubbleMap = String.format(Locale.ENGLISH, "%s %.1f", label, val);
+                } else {
+                    bubbleMap = String.format(Locale.ENGLISH, "%s %.1f to %.1f", label,
+                            minVal, maxVal);
+                }
+            }
+        }
+        nt.setAction("org.js.LOC");
+        nt.putExtra("LOC",loc);
+        nt.putExtra("COLOR",col);
+        nt.putExtra("BUBBLE",bubbleMap);
+        if (startLine){
+            nt.putExtra("START",startLine);
+            nt.putExtra("Tail",actTail);
+            startLine=false;
+        }
+        sendBroadcast(nt);
+    }
+
+///////////////////
+
+///////////////////       SETTINGS
+
+    void selGpx(){
+        tTime.setText("0");
+        pBar.setProgress(0);
+        if (track!=null) track.close();
+        nbWpt =0;
+        nbRte=0;
+        nbTrk=0;
+        running=false;
+        track=null;
+        Intent intent = new Intent(MainActivity.this, Selector.class);
+        intent.putExtra("CurrentDir", Directory);
+        intent.putExtra("WithDir", false);
+        intent.putExtra("Mask", "(?i).+\\.gpx");
+        intent.putExtra("Title","Read from ");
+        if (filePath!=null) intent.putExtra("Previous",filePath);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivityForResult(intent, 2);
+    }
+
+       void selectCol(){
+        AlertDialog.Builder build=new AlertDialog.Builder(this);
+        build.setTitle("Select a method for coloring")
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
+                        setColorz(null);
+                    }
+                })
+                .setItems(head, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        setColorz(which);
+                    }
+                });
+        build.show();
+    }
+
+    void setColorz(Integer which){
+        if (which==null) return;
+        bcolBy.setText(head[which]);
+        colSrc=which;
+        if (colSrc==colNone){
+            etBlue.setEnabled(false);
+            etRed.setEnabled(false);
+        } else {
+            etBlue.setEnabled(true);
+            etRed.setEnabled(true);
+        }
+        etBlue.setText(defBlue[colSrc]);
+        etRed.setText(defRed[colSrc]);
+    }
+
+    public void getSpeed(){
+        int id=rSpeed.getCheckedRadioButtonId();
+        switch (id){
+            case R.id.sp1:
+                divisor=1l;
+                break;
+            case R.id.sp2:
+                divisor=2l;
+                break;
+            case R.id.sp10:
+                divisor=10l;
+                break;
+        }
+    }
+
+///////////////////
+
+///////////////////       RETURNS
+
+    IntentFilter filter=new IntentFilter("org.js.ACK");
+    private Handler mHandler=new Handler();
+    private Runnable timerTask=new Runnable() {
+        @Override
+        public void run() {
+            dispatch(2);
+        }
+    };
+
+    private final BroadcastReceiver mReceiver=new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String origin=intent.getStringExtra("NAME");
+            int vc=intent.getIntExtra("VERSION",0);
+            unregisterReceiver(mReceiver);
+            waitMap=false;
+            ckVcMap(vc);
+            if (refPath ==null) {
+                dispatch(1);
+            } else {
+                setRefG();
+            }
+        }
+    };
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if (requestCode==100){
+            if (grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
+                start1();
+            } else finish();
+        }
+    }
+
+    @Override
+    protected void onResume(){
+        super.onResume();
+        fromMap();
+    }
+
+    public void fromMap(){
+        if (runningMap) {
+            running = false;
+            runningMap = false;
+//            Toast.makeText(context, "Return from map", Toast.LENGTH_LONG).show();
+            if (picking){
+                unregisterReceiver(pReceiver);
+                prcsPick();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode) {
+            case 2:       // selector
+                if (resultCode == RESULT_OK) {
+                    filePath = data.getStringExtra("Path");
+                    if (filePath == null || filePath.isEmpty()) finish();
+                    else {
+                        start2(filePath);
+                    }
+                } else finish();
+                break;
+            case 3:     // gpx gen
+                if (resultCode == RESULT_OK) {
+                    String fGpx = data.getStringExtra("Path");
+                    gpx.ckOver(fGpx);
+                } else taskChoice();
+                break;
+            case 4:      // select reference
+                if (resultCode == RESULT_OK) {
+                    refPath = data.getStringExtra("Path");
+                    if (refPath == null || refPath.isEmpty()) refPath = null;
+                } else refPath = null;
+                if (refPath ==null) bRef.setText("-none-");
+                else {
+                    File f=new File(refPath);
+                    refDirectory =f.getParent();
+                    String bGname = (f.getName());
+                    bRef.setText(bGname);
+                }
+                break;
+            case 5:        // compose
+                if (resultCode==RESULT_OK){
+                    filePath=data.getStringExtra("Path");
+                    if (filePath == null || filePath.isEmpty()) finish();
+                    else {
+                        start2(filePath);
+                    }
+                } else finish();
+                break;
+        }
+    }
+
+
+///////////////////
+
+///////////////////       PICKING
+
+    gpxGen gpx;
+
+    void nkdPick(){
+        AlertDialog.Builder build=new AlertDialog.Builder(this);
+        build.setMessage("Preparation of new route/waypoints ?")
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
+                        finish();
+                    }
+                })
+                .setTitle("New GPX file")
+                .setNeutralButton("NO", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        finish();
+                    }
+                })
+                .setPositiveButton("Waypoints", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        asWpt=true;
+                        initPick();
+                    }
+                })
+                .setNegativeButton("Route", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        asWpt=false;
+                        initPick();
+                    }
+                });
+        build.show();
+    }
+
     void initPick(){
         picking=true;
         picked.clear();
         if (!runningMap){
-            launchMap();
+            launchMap(centerLoc);
             return;
         }
         Intent nt = new Intent();
@@ -954,296 +1311,144 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    void dispatch(int from){
-        if (!running){
-            if (picking) initPick();
+    void prcsPick(){
+        SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
+        Calendar now=Calendar.getInstance();
+        pkdRteName=null;
+        final String defName=sdf.format(now.getTime());
+        Integer nbLoc=picked.size();
+        if (nbLoc<1){
+            Toast.makeText(context,"No registered location!",Toast.LENGTH_LONG).show();
+            picking=false;
             return;
         }
-        if (track==null){
-            dispLoc=initTrack();
-            if (dispLoc==null){
-                selGpx();
+        if (asWpt){
+            Toast.makeText(context,nbLoc.toString()+" registered waypoints",
+                    Toast.LENGTH_LONG).show();
+            recordWR();
+        } else {
+            if (nbLoc<2){
+                Toast.makeText(context,"At least 2 points for a route!",
+                        Toast.LENGTH_LONG).show();
+                picking=false;
                 return;
             }
-        }
-        while (dispLoc!=null) {
-            Track.enttGpx entity = (Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
-            if (Tail && (entity == Track.enttGpx.TRK || entity == Track.enttGpx.TRKWPT)) {
-                if (withTail()) return;
-            } else {
-                if (noTail()) return;
+            Double totLn=0.0;
+            SortedSet<Integer> keys=new TreeSet<>();
+            keys.addAll(picked.keySet());
+            Iterator<Integer> itr=keys.iterator();
+            NamedLoc namedLoc=null;
+            Integer indx=null;
+            Location loc=null;
+            indx=itr.next();
+            namedLoc=picked.get(indx);
+            Location prevLoc=namedLoc.loc;
+            while (itr.hasNext()){
+                indx=itr.next();
+                namedLoc=picked.get(indx);
+                loc=namedLoc.loc;
+                totLn+=haver.lHaversine(prevLoc,loc);
+                prevLoc=loc;
             }
-        }
-        eof();
-    }
-
-    Boolean noTail(){
-        if (dispLoc==null) return true;
-        int nbBroadcast=0;
-        Track.enttGpx entity=(Track.enttGpx)dispLoc.getExtras().getSerializable("ENTITY");
-        switch (entity){
-            case WPT:
-                curEntity=entity;
-            case RTEWPT:
-            case TRKWPT:
-                if (!runningMap) {
-                    centerLoc=dispLoc;
-                    launchMap();
-                    return true;
+            String km=String.format(Locale.ENGLISH,"length: %.1f km",totLn);
+            AlertDialog.Builder builder=new AlertDialog.Builder(this);
+            builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    finish();
                 }
-                break;
-            case TRK:
-                curEntName="Track "+dispLoc.getExtras().getString("name",null);
-                setStart=true;
-                startLoc=null;
-                stack.clear();
-                minVal=null;
-                maxVal=null;
-                minAlt=null;
-                maxAlt=null;
-                curEntity=entity;
-                dispLoc=readTrk();
-                return false;
-            case RTE:
-                curEntName="Route "+dispLoc.getExtras().getString("name",null);
-                setStart=true;
-                startLoc=null;
-                stack.clear();
-                minVal=null;
-                maxVal=null;
-                minAlt=null;
-                maxAlt=null;
-                curEntity=entity;
-                dispLoc=readTrk();
-                return false;
-            case ALIEN:
-                track.close();
-                Toast.makeText(context,"Sorry, "+fileName+" is not compatible.",
-                        Toast.LENGTH_LONG).show();
-                selGpx();
-                return true;
-
-        }
-        while (true){
-            nbBroadcast++;
-            if (nbBroadcast>100){
-                mHandler.postDelayed(timerTask,100L);
-                return true;
-            }
-            entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
-            switch (curEntity){
-                case WPT:
-                    if (entity!=curEntity) return false;
-                    nbWpt++;
-                    dispWpt(dispLoc, String.format(Locale.ENGLISH,"%d waypoints",nbWpt));
-                    break;
-                case TRKWPT:
-                case RTEWPT:
-                    if (entity!=curEntity) {
-                        return false;
-                    }
-                    dispTrk(dispLoc,false);
-                    break;
-                case RTE:
-                    if (entity!= Track.enttGpx.RTEWPT) return false;
-                    if (setStart){
-                        if (startLoc==null) {
-                            startLoc=dispLoc;
-                            startLoc.getExtras().putString("name",curEntName);
-                            if (startLoc.hasAltitude()){
-                                minAlt=startLoc.getAltitude();
-                                maxAlt=minAlt;
-                            }
+            });
+            View rteDiag=View.inflate(this,R.layout.route,null);
+            TextView vRteNb=rteDiag.findViewById(R.id.rteNb);
+            final EditText vRteName=rteDiag.findViewById(R.id.rteName);
+            vRteNb.setText("Set a significative route name like \"GR5 Day1\"");
+            vRteName.setHint(defName);
+            builder.setView(rteDiag)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            pkdRteName=vRteName.getText().toString();
+                            if (pkdRteName!=null) pkdRteName=pkdRteName.trim();
+                            if (pkdRteName==null || pkdRteName.isEmpty()) pkdRteName=defName;
+                            InputMethodManager imm = (InputMethodManager)
+                                    context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+                            imm.hideSoftInputFromWindow(vRteName.getWindowToken(),0);
+                            picking=false;
+                            recordWR();
                         }
-                        startTime=startLoc.getTime();
-                        startLine=true;
-                        prevAlt=null;
-                        prevLoc=null;
-                        totDist=null;
-                    }
-                    dispTrk(dispLoc,false);
-                    if (setStart){
-                        nbRte++;
-                        dispWpt(startLoc,String.valueOf(nbRte)+": "+ curEntName);
-                        setStart=false;
-                    }
-                    curEntity=entity;
-                    break;
-                case TRK:
-                    if (entity!= Track.enttGpx.TRKWPT) return false;
-                    if (setStart){
-                        if (startLoc==null) {
-                            startLoc=dispLoc;
-                            startLoc.getExtras().putString("name",curEntName);
-                            if (startLoc.hasAltitude()){
-                                minAlt=startLoc.getAltitude();
-                                maxAlt=minAlt;
-                            }
-                        }
-                        startTime=startLoc.getTime();
-                        startLine=true;
-                        prevAlt=null;
-                        prevLoc=null;
-                        totDist=null;
-                    }
-                    dispTrk(dispLoc,false);
-                    if (setStart){
-                        nbTrk++;
-                        dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName);
-                        setStart=false;
-                    }
-                    curEntity=entity;
-                    break;
-            }
-            if (!runningMap) return true;
-            dispLoc=readTrk();
-            if (dispLoc==null) {
-                return false;
-            }
+                    })
+                    .setTitle("Route: "+nbLoc+" points ("+km+")");
+            builder.show();
         }
+        picking=false;
     }
 
-    Boolean withTail(){
-        if (dispLoc==null || !Tail) return false;
-        Track.enttGpx entity=(Track.enttGpx)dispLoc.getExtras().getSerializable("ENTITY");
-        switch (entity){
-            case TRKWPT:
-                if (!runningMap){
-                    centerLoc=dispLoc;
-                    launchMap();
-                    return true;
-                }
-                break;
-            case TRK:
-                curEntName="Track "+dispLoc.getExtras().getString("name",null);
-                setStart=true;
-                startLoc=null;
-                stack.clear();
-                minVal=null;
-                maxVal=null;
-                minAlt=null;
-                maxAlt=null;
-                curEntity=entity;
-                dispLoc=readTrk();
-                return false;
-            default:
-                return false;
-        }
-        entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
-        if (entity!= Track.enttGpx.TRKWPT) return false;
-        if (setStart){
-            if (startLoc==null){
-                if (dispLoc.getTime()==0L || !dispLoc.hasAltitude()){
-                    Tail=false;
-                    return false;
-                }
-                startLoc=dispLoc;
-                startTime=startLoc.getTime();
-                startLoc.getExtras().putString("name",curEntName);
-                minAlt=startLoc.getAltitude();
-                maxAlt=minAlt;
-                if (toSkip>0){
-                    dispLoc=skip(dispLoc);
-                    if (dispLoc==null) return false;
-                    entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
-                    if (entity!= Track.enttGpx.TRKWPT) return false;
-                }
-            }
-            startLine=true;
-            prevAlt=null;
-            prevLoc=null;
-            totDist=null;
-        }
-        dispTrk(dispLoc,true);
-        if (setStart){
-            nbTrk++;
-            dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName);
-            setStart=false;
-        }
-        curEntity=entity;
-        lastTrk=dispLoc.getTime();
-        Long toWait=0L;
-        while (toWait<300L){
-            dispLoc=readTrk();
-            if (dispLoc==null) return false;
-            entity=(Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
-            if (entity!=Track.enttGpx.TRKWPT) return false;
-            if (dispLoc.getTime()>0L) toWait=(dispLoc.getTime()-lastTrk)/divisor;
-        }
-        mHandler.postDelayed(timerTask,toWait);
-        return true;
+    void recordWR(){
+        gpx=new gpxGen();
+        gpx.outChoice(mAct,Directory,filePath,asWpt,pkdRteName,picked);
     }
 
-    void dispWpt(Location loc, String infoBubble){
-        Intent nt = new Intent();
-        nt.setAction("org.js.LOC");
-        nt.putExtra("WPT",loc);
-        String namWpt=loc.getExtras().getString("name", "?");;
-        if (infoBubble==null) {
-            if (loc.hasAltitude()) {
-                namWpt = String.format(Locale.ENGLISH, "%s (%.1f)",
-                        loc.getExtras().getString("name", "?"), loc.getAltitude());
-            }
-            nt.putExtra("BUBBLE",namWpt);
+    void recordWR0(){
+        if (filePath==null) taskChoice();
+    }
+
+///////////////////
+
+///////////////////      REFERENCE GPX
+
+        class SaveGpx {
+        Track track=null;
+        Location dispLoc=null;
+        Location startLoc=null;
+        Track.enttGpx curEntity=null;
+        String curEntName=null;
+    }
+    SaveGpx saved=null;
+
+    void setRefG() {
+        Location firstLoc = null;
+        Long sizeRef = null;
+        saved = new SaveGpx();
+        saved.track = track;
+        saved.dispLoc = dispLoc;
+        saved.curEntity = curEntity;
+        saved.startLoc = startLoc;
+        saved.curEntName = curEntName;
+        track = new Track();
+        sizeRef = track.open(refPath);
+        firstLoc = readTrk();
+        if (firstLoc == null) {
+            Toast.makeText(context, "No valid item in " + refPath, Toast.LENGTH_LONG).show();
+            track.close();
+            track = saved.track;
+            dispLoc = saved.dispLoc;
+            curEntity = saved.curEntity;
+            startLoc = saved.startLoc;
+            curEntName = saved.curEntName;
+            saved = null;
+            inRef = false;
+            setStart = true;
+            dispatch(5);
         } else {
-            nt.putExtra("BUBBLE",infoBubble);
+            dispLoc = firstLoc;
+            inRef = true;
+            dispatch(6);
         }
-        nt.putExtra("WPT_NAME", namWpt);
-        sendBroadcast(nt);
     }
 
-    void dispTrk(Location loc, Boolean actTail){
-        Double val=0.0;
-        String label="";
-        Integer col=Color.BLACK;
-        String bubbleMap;
-        Intent nt=new Intent();
-        label=Labels[colSrc];
-        val=getVal(loc);
-        if (val==null){
-            col=Color.BLACK;
-            val=0.0;
-        } else {
-            if (colSrc==colNone){
-                if (prevAlt == null || val > prevAlt) {
-                    col=Color.rgb(0xFF, 0x00, 0x00);
-                } else {
-                    col=Color.rgb(0x00, 0x00, 0xFF);
-                }
-                prevAlt=val;
-            } else {
-                col=colorz(val);
-            }
-            if (minVal==null){
-                minVal=val;
-                maxVal=val;
-            } else {
-                minVal=Math.min(minVal,val);
-                maxVal=Math.max(maxVal,val);
-            }
-        }
-        if (minVal==null || maxVal==null){
-            bubbleMap=null;
-        } else {
-            if (actTail){
-                bubbleMap=String.format(Locale.ENGLISH,"%s %.1f",label,val);
-            } else {
-                bubbleMap = String.format(Locale.ENGLISH, "%s %.1f to %.1f", label,
-                        minVal, maxVal);
-            }
-        }
-        nt.setAction("org.js.LOC");
-        nt.putExtra("LOC",loc);
-        nt.putExtra("COLOR",col);
-        nt.putExtra("BUBBLE",bubbleMap);
-        if (startLine){
-            nt.putExtra("START",startLine);
-            nt.putExtra("Tail",actTail);
-            startLine=false;
-        }
-        sendBroadcast(nt);
+    void selectRef(){
+        Intent intent=new Intent(MainActivity.this, Selector.class);
+        if (refDirectory==null) refDirectory=Directory;
+        if (refDirectory !=null) intent.putExtra("CurrentDir", refDirectory);
+        intent.putExtra("WithDir",false);
+        intent.putExtra("Mask","(?i).+\\.gpx");
+        intent.putExtra("Title","Reference GPX?      ");
+        if (refPath !=null) intent.putExtra("Previous", refPath);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivityForResult(intent,4);
     }
 
 
+///////////////////
 
 }

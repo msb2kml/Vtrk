@@ -1,7 +1,10 @@
 # Creation of new waypoints and routes
 
-The Vtrk application could be used to create new waypoints or
+This task could be used to create new waypoints or
 new routes.  
+It could be used on a clean map when starting from the task menu
+of the application or it could be used on a map already displaying
+some GPX file from the display task.  
 After creation of some number of waypoints or one route, the new
 items could be stored in a new GPX file or appended to an existing
 file.
@@ -16,12 +19,6 @@ ordered but no name is needed. But at the return from Msb2Map a name is
 needed for the route itself.
 
 ![PickRoute](Gallery/PickRoute.jpg)
-
-A picking session for waypoints or a picking session for a route
-could be started as a combination with the display of a GPX file
-in the "Entire" mode.  
-Alternatively, if no file is selected to display,
-it is possible to start an independent picking session.
 
 A file to store the new items has to be selected at the return
 from the picking session.  

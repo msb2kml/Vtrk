@@ -1,11 +1,14 @@
 # Purpose
-This application draws on a topographic map background a mix of tracks,
-routes and waypoints stored in a GPX file. It could also be used
-to create new routes and new waypoints.
+There are three tasks that could be performed by this application:
+
+ + Draws on a topographic map background a mix of tracks,
+routes and waypoints stored in a GPX file.
+ + Create new routes and new waypoints.
+ + Compose a GPX file from items extracted from other GPX files.
 
 The map is displayed by the [Msb2Map](https://github.com/msb2kml/Msb2Map/)
 application driven by Vtrk.  
-The processed details are:
+The processed items are:
 
 + waypoints: latitude, longitude, altitude and name.
 + routes: name of the route and for each waypoint, the latitude and
@@ -30,7 +33,7 @@ VtrkXX.apk) should be transferred to the storage of the device
 the opportunity to install it.
 
 The Msb2Map application should be independently installed.
-Minimum version 1.5.
+Minimum version 1.6.
 
 # Permissions
 The Vtrk application needs to read the internal and the external storage.  
@@ -38,9 +41,6 @@ The Msb2Map application needs access to the Internet to fetch the
 maps that are kept in a cache.
 
 None of the applications need access to the location of the device.
-
-
-
 
 # File selection
 There is a built in specialized file manager that show, from the
@@ -58,7 +58,7 @@ file manager or a mailer.
 The elements waypoints, routes and tracks are drawn in the order
 they are found when the file is read.
 
-# Color
+# Color of displayed tracks
 The segments drawn between track points could be colored by the
 value in a range of some parameter extracted or computed from
 the track data.  
@@ -69,13 +69,13 @@ The parameter could be:
 
 + "height above start" : height (m) relative to the first point
  of the track. Default range: -200 to 200.
-+ "climb rate m/s" : Vertical speed, more appropriate to a
++ "climb rate m/s" : Vertical speed, more appropriate to an
  R/C model or a glider. Default range: -2.0 to 2.0.
 + "climb rate m/h" : Vertical speed, appropriate for hiking.
  Default range: -400.0 to 400.0.
 + "speed km/h" : Horizontal speed. Default range: 0.0 to 10.0.
 + "slope %" : Slope of the track. Default range: -40.0 to 40.0.
-+ "distance" : cumulated traveled distance (km).
++ "distance" : accumulated traveled distance (km).
 
 Each speed is smoothed by computing them from
 points separated by an interval of at least 10 seconds. 
@@ -126,5 +126,9 @@ the name of its element.
 
 ![RouteAndWpt](Documents/Gallery/RouteAndWpt.jpg)
 
-
+# Reference GPX
+Another GPX file could be displayed as a reference for the
+subject file.  
+This reference is drawn first, its waypoints, tracks and
+routes are displayed with a uniform half-transparent magenta color.
 

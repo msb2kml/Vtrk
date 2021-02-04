@@ -7,7 +7,7 @@ It allows the navigation in a hierarchy of directories.
 The content of the current directory is presented as a listing.
 The first entry is labeled "../  (up)" and gives access to the
 parent directory.  
-The next entries are the names of the subdirectories padded
+And the next entries are the names of the sub directories padded
 with a "/" character and allow the descent in the hierarchy.  
 They are followed by the names of the files that could be selected.
 Only GPX type files are shown.  
@@ -35,7 +35,7 @@ of directories available to the application.
 The paths of the roots is virtualized in a way that is dependent
 of the Android revision.
 
-The internal storage should be always available and
+Internal storage should be always available and
 the symbol **"[\*Fixed\*]"** is displayed instead of the real path,
 for standardization.
 
