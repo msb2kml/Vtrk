@@ -43,6 +43,28 @@
         app:layout_constraintStart_toStartOf="parent"
         android:text="Type of file" />
 
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="16dp"
+        android:layout_marginStart="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBaseline_toBaselineOf="@id/centerPos"
+        android:text="Center on " />
+
+    <Button
+        android:id="@+id/centerPos"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="12dp"
+        android:text=" - "
+        android:textAllCaps="false"
+        app:layout_constraintStart_toEndOf="@id/textView3"
+        app:layout_constraintTop_toBottomOf="@id/type" />
+
     <Button
         android:id="@+id/colBy"
         android:layout_width="wrap_content"
@@ -201,6 +223,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/cEntr"
         android:background="@drawable/box">
+
+        <CheckBox
+            android:id="@+id/upCheck"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Orienting"
+            app:layout_constraintStart_toStartOf="@id/cTrail"
+            app:layout_constraintTop_toTopOf="@id/cTrail" />
 
         <RadioGroup
             android:id="@+id/speed"

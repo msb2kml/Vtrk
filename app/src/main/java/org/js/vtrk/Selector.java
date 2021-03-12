@@ -46,6 +46,13 @@ public class Selector extends AppCompatActivity {
         if (rmvPath!=null){
             File f=new File(rmvPath);
             if (!f.exists() || !f.isDirectory() || !f.canRead()) rmvPath=null;
+            else {
+                String parent=f.getParent();
+                if (parent!=null && !parent.contentEquals("/")){
+                   File f2=new File(parent);
+                   if (f2.exists() && f2.isDirectory() && f2.canRead()) rmvPath=parent;
+                }
+            }
         }
         nav=new navDir(exPath,rmvPath);
 //        if (currentDir==null) currentDir=exPath;

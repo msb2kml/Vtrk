@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
@@ -44,6 +45,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -71,8 +74,10 @@ public class MainActivity extends AppCompatActivity {
     Button bcolBy;
     Button bRef;
     Button bComp;
+    Button bCenter;
     EditText etRed;
     EditText etBlue;
+    CheckBox ckUp;
     Track track=null;
     Long size;
     Integer nbWpt =0;
@@ -89,7 +94,6 @@ public class MainActivity extends AppCompatActivity {
     Double zoom=15.0;
     Boolean setStart=true;
     Location startLoc=null;
-    Location centerLoc=null;
     Double prevAlt=null;
     Location dispLoc=null;
     Location prevLoc=null;
@@ -110,6 +114,8 @@ public class MainActivity extends AppCompatActivity {
     Double minVal=null;
     Double maxVal=null;
     Double totDist=null;
+    Double totGain=null;
+    Double totDrop=null;
     static int colNone=0;
     static int colHeight=1;
     static int colMpS=2;
@@ -117,8 +123,10 @@ public class MainActivity extends AppCompatActivity {
     static int colKpH=4;
     static int colSlp=5;
     static int colDist=6;
-    String[] defBlue={"-","-200.0","-2.0","-400.0","0.0","-40.0","0.0"};
-    String[] defRed={"-","200.0","2.0","400.0","10.0","40.0","10.0"};
+    static int colVgain=7;
+    static int colVdrop=8;
+    String[] defBlue={"-","-200.0","-2.0","-400.0","0.0","-40.0","0.0","0","0"};
+    String[] defRed={"-","200.0","2.0","400.0","10.0","40.0","10.0","1000","1000"};
     Integer colSrc=colNone;
     String[] head={ " - (none) ",
                     " height above start ",
@@ -126,14 +134,18 @@ public class MainActivity extends AppCompatActivity {
                     " climb rate m/h ",
                     " speed km/h ",
                     " slope %",
-                    " distance "};
+                    " distance ",
+                    " Vert. gain",
+                    " Vert. drop"};
     String[] Labels={"Alt.",
                      "Height",
                      "m/s",
                      "m/h",
                      "km/h",
                      "%",
-                     "Km"};
+                     "Km",
+                     "m +",
+                     "m -"};
     Integer[] lineColor={ Color.rgb(0x00,0x00,0xFF),
                           Color.rgb(0x00,0x63,0xF3),
                           Color.rgb(0x00,0x92,0xDE),
@@ -157,6 +169,11 @@ public class MainActivity extends AppCompatActivity {
     Map<Integer,NamedLoc> picked=new HashMap();
     Boolean asWpt=true;
     String pkdRteName=null;
+    Location arrowOrg=null;
+    Boolean rotMap=false;
+    Map<String,Location> centerPos=new HashMap<>();
+    String centerName=null;
+    Boolean singleLoc=false;
 
 
     WeakReference<MainActivity> mAct;
@@ -191,10 +208,94 @@ public class MainActivity extends AppCompatActivity {
                 String sc=uri.getScheme();
                 if (sc.contentEquals("file")){
                     filePath=uri.getPath();
+                } else if (sc.contentEquals("geo")){
+                    String geo=uri.getSchemeSpecificPart();
+                    singleLoc=validGeo(geo);
+                    if (!singleLoc){
+                        Toast.makeText(context,"Unknown "+geo,Toast.LENGTH_LONG);
+                    }
                 }
 
             }
         }
+    }
+
+    Boolean validGeo(String geo){
+        String patrnLatLon="(-?[0-9.]+)";
+        String patrnAndro="q=(-?[0-9.]+),(-?[0-9.]+)\\(([^(]+)\\)";
+        Pattern pLatLon=Pattern.compile(patrnLatLon);
+        Pattern pAndro=Pattern.compile(patrnAndro);
+        Matcher m;
+        Location where=null;
+        String name=null;
+        String[] part=geo.split("\\?");
+        String LatLon;
+        if (part.length<1) LatLon=geo;
+        else LatLon=part[0];
+        if (!LatLon.contentEquals("0,0")){
+            where=new Location("");
+            name=LatLon;
+            String[] coord=LatLon.split(",");
+            if (coord.length<2) return false;
+            m=pLatLon.matcher(coord[0]);
+            if (!m.find()) return false;
+            try {
+                where.setLatitude(Double.parseDouble(m.group(1)));
+            } catch (NumberFormatException e){
+                return false;
+            }
+            m=pLatLon.matcher(coord[1]);
+            if (!m.find()) return false;
+            try {
+                where.setLongitude(Double.parseDouble(m.group(1)));
+            } catch (NumberFormatException e){
+                return false;
+            }
+            if (coord.length>2){
+                m=pLatLon.matcher(coord[2]);
+                if (!m.find()) return false;
+                try {
+                    where.setAltitude(Double.parseDouble(m.group(1)));
+                } catch (NumberFormatException e){
+                    return false;
+                }
+            }
+        }
+        if (part.length>1){
+            m=pAndro.matcher(part[1]);
+            if (m.find()){
+                int n=m.groupCount();
+                if (n==3){
+                    name=m.group(3);
+                } else if (name==null) name=part[1];
+                Double lat=null;
+                Double lon=null;
+                String s=m.group(1);
+                try {
+                    lat=Double.parseDouble(s);
+                } catch (NumberFormatException e){
+                    lat=null;
+                }
+                s=m.group(2);
+                try {
+                    lon=Double.parseDouble(s);
+                } catch (NumberFormatException e){
+                    lon=null;
+                }
+                if (lat!=null && lon!=null){
+                    if (where==null) where=new Location("");
+                    where.setLatitude(lat);
+                    where.setLongitude(lon);
+                }
+            }
+        }
+        if (where==null) return false;
+        Bundle bundle=new Bundle();
+        where.setExtras(bundle);
+        where.getExtras().putString("name",name);
+        centerPos.put(name,where);
+        centerName=name;
+        return true;
     }
 
     void fetchPref(){
@@ -257,6 +358,8 @@ public class MainActivity extends AppCompatActivity {
         etRed=(EditText) findViewById(R.id.redVal);
         bRef =(Button) findViewById(R.id.bBg);
         bComp=(Button) findViewById(R.id.bComp);
+        ckUp=(CheckBox) findViewById(R.id.upCheck);
+        bCenter=(Button) findViewById(R.id.centerPos);
         refPath =null;
         bRef.setText("-none-");
         bcolBy.setOnClickListener(new View.OnClickListener() {
@@ -414,11 +517,58 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, 5);
             }
         });
-        if (filePath==null) {
+        bCenter.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                slctCenter();
+            }
+        });
+        mngCenter();
+        if (singleLoc) start3();
+        else if (filePath==null) {
             taskChoice();
         } else {
             start2(filePath);
         }
+    }
+
+    void mngCenter(){
+        if (centerPos.isEmpty() || centerName==null){
+            bCenter.setText(" - ");
+            bCenter.setEnabled(false);
+            centerName=null;
+        } else {
+            if (!centerPos.containsKey(centerName)){
+                TreeSet<String> s=new TreeSet(centerPos.keySet());
+                centerName=s.first();
+            }
+            bCenter.setText(centerName);
+            bCenter.setEnabled(true);
+        }
+    }
+
+    void slctCenter(){
+        final String[] theList;
+        if (centerPos.isEmpty()) return;
+        theList=centerPos.keySet().toArray(new String[centerPos.size()]);
+        AlertDialog.Builder build=new AlertDialog.Builder(this);
+        build.setTitle("Select the center of the map");
+        build.setItems(theList, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                centerName=theList[which];
+                mngCenter();
+            }
+        });
+        build.setNegativeButton("None", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                centerPos.clear();
+                centerName=null;
+                mngCenter();
+            }
+        });
+        build.show();
     }
 
     void taskChoice(){
@@ -471,9 +621,13 @@ public class MainActivity extends AppCompatActivity {
 
     public void start2(String path){
         String note;
+        singleLoc=false;
         filePath=path;
         File f=new File(filePath);
         Location first=introTyp();
+        centerPos.clear();
+        centerName=null;
+        mngCenter();
         if (first==null){
             note="??";
         } else {
@@ -501,6 +655,13 @@ public class MainActivity extends AppCompatActivity {
         putPref();
     }
 
+    public void start3(){
+        filePath=null;
+        tType.setText("Waypoint "+centerName);
+        tFile.setText("Single waypoint");
+        pBar.setProgress(0);
+    }
+
     void launchMap(Location centerLoc){
         stack.clear();
         setStart=true;
@@ -519,8 +680,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void ckVcMap(int vc){
-        if (vc<16){
-            Toast.makeText(context,"Msb2Map revision should be at least 1.6",
+        if (vc<17){
+            Toast.makeText(context,"Msb2Map revision should be at least 1.7",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -530,6 +691,8 @@ public class MainActivity extends AppCompatActivity {
     Location introTyp(){
         Track.enttGpx entity;
         if (track!=null) track.close();
+        centerPos.clear();
+        centerName=null;
         Location first=initTrack();
         if (first==null) return null;
         Track.enttGpx first_ent=(Track.enttGpx) first.getExtras().getSerializable("ENTITY");
@@ -594,12 +757,14 @@ public class MainActivity extends AppCompatActivity {
         nbTrk = 0;
         firstLoc = readTrk();
         if (firstLoc == null) {
-            Toast.makeText(context, "No valid item in " + fileName, Toast.LENGTH_LONG).show();
+            Toast.makeText(context, "No valid item in " + filePath, Toast.LENGTH_LONG).show();
             return null;
         }
         minVal = null;
         maxVal = null;
         totDist = null;
+        totDrop=null;
+        totGain=null;
         return firstLoc;
     }
 
@@ -613,22 +778,24 @@ public class MainActivity extends AppCompatActivity {
         while (true) {
             loc = track.nextPt();
             if (loc == null) return loc;
-            position = track.getPos();
-            Float prog = (100.0f * Float.valueOf(position)) / Float.valueOf(size);
-            pBar.setProgress(prog.intValue());
-            if (startTime != null && startTime>0L && loc.getTime() != 0L) {
-                Long sec = (loc.getTime() - startTime) / 1000L;
-                Long hour = sec / 3600L;
-                Long min = (sec - hour * 3600L) / 60L;
-                Long s = (sec - hour * 3600L - min * 60L);
-                tTime.setText(String.format("%02d:%02d:%02d", hour, min, s));
-            } else tTime.setText("0");
+            if (!inRef) {
+                position = track.getPos();
+                Float prog = (100.0f * Float.valueOf(position)) / Float.valueOf(size);
+                pBar.setProgress(prog.intValue());
+                if (startTime != null && startTime > 0L && loc.getTime() != 0L) {
+                    Long sec = (loc.getTime() - startTime) / 1000L;
+                    Long hour = sec / 3600L;
+                    Long min = (sec - hour * 3600L) / 60L;
+                    Long s = (sec - hour * 3600L - min * 60L);
+                    tTime.setText(String.format("%02d:%02d:%02d", hour, min, s));
+                } else tTime.setText("0");
+            }
             return loc;
         }
     }
 
     void eof(){
-        track.close();
+        if (track!=null) track.close();
         if (inRef && saved!=null){
             track=saved.track;
             dispLoc=saved.dispLoc;
@@ -670,16 +837,21 @@ public class MainActivity extends AppCompatActivity {
     Location smooth(Location disploc){
         Location refLoc;
         if (colSrc==colNone) return null;
-        if ((colSrc==colHeight || colSrc==colSlp) && !disploc.hasAltitude()) return null;
+        if ((colSrc==colHeight || colSrc==colSlp ||
+                colSrc==colVgain || colSrc==colVdrop) && !disploc.hasAltitude()) return null;
         if (stack.size()==0) {
             stack.addFirst(disploc);
             return null;
         }
-        if (colSrc==colHeight || colSrc==colSlp){
+        if (colSrc==colVgain || colSrc==colVdrop){
+            refLoc=stack.get(0);
+            stack.addFirst(disploc);
+        } else if (colSrc==colHeight || colSrc==colSlp){
             Double alt=disploc.getAltitude();
             Double alt0=stack.get(0).getAltitude();
             if (Math.abs(alt-alt0)>1.0) stack.addFirst(disploc);
-            Double altL=stack.getLast().getAltitude();
+            refLoc=stack.getLast();
+//            Double altL=stack.getLast().getAltitude();
 //            if (Math.abs(alt-altL)<1.0) return null;
         } else {
             if ((disploc.getTime() - stack.get(0).getTime() > 1000L)) {
@@ -689,8 +861,8 @@ public class MainActivity extends AppCompatActivity {
             if (dif < 10000L) {
                 return null;
             }
+            refLoc=stack.getLast();
         }
-        refLoc = stack.getLast();
         if (stack.size() > 10) stack.removeLast();
         return refLoc;
     }
@@ -758,18 +930,38 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
-        } else if (colSrc==colDist){
-            if (totDist==null) totDist=0.0;
-            if (prevLoc!=null) {
+        } else if (colSrc==colDist) {
+            if (totDist == null) totDist = 0.0;
+            if (prevLoc != null) {
                 Double dis = haver.lHaversine(prevLoc, thisLoc);
                 totDist += dis;
             }
-            prevLoc=thisLoc;
+            prevLoc = thisLoc;
             return totDist;
+        } else if (colSrc==colVgain) {
+            if (alt==null) return null;
+            Location refLoc = smooth(thisLoc);
+            if (refLoc == null) return null;
+            Double h = alt - refLoc.getAltitude();
+            if (totGain==null) totGain=0.0;
+            if (h>0.0) totGain+=h;
+            return totGain;
+        } else if (colSrc==colVdrop){
+            if (alt==null) return null;
+            Location refLoc = smooth(thisLoc);
+            if (refLoc == null) return null;
+            Double h = alt - refLoc.getAltitude();
+            if (totDrop==null) totDrop=0.0;
+            if (h<0.0) totDrop+=-h;
+            return totDrop;
         } else return null;
     }
 
     void dispatch(int from){
+        if (singleLoc && !inRef){
+            drwSingle();
+            return;
+        }
         if (!running){
             if (picking) initPick();
             return;
@@ -793,6 +985,15 @@ public class MainActivity extends AppCompatActivity {
         eof();
     }
 
+    void drwSingle(){
+        if (!runningMap){
+            launchMap(centerPos.get(centerName));
+            return;
+        }
+        dispWpt(centerPos.get(centerName),centerName,0);
+        eof();
+    }
+
     Boolean noTail() {
         if (dispLoc == null) return true;
         int nbBroadcast = 0;
@@ -803,8 +1004,12 @@ public class MainActivity extends AppCompatActivity {
             case RTEWPT:
             case TRKWPT:
                 if (!runningMap) {
-//                    centerLoc=dispLoc;
-                    launchMap(dispLoc);
+                    if (centerName==null) {
+                        launchMap(dispLoc);
+                    } else {
+                        launchMap(centerPos.get(centerName));
+                    }
+                    centerPos.clear();
                     return true;
                 }
                 break;
@@ -856,6 +1061,13 @@ public class MainActivity extends AppCompatActivity {
                     if (inRef) tp=2;
                     dispWpt(dispLoc, String.format(Locale.ENGLISH, "%d waypoints", nbWpt),
                             tp);
+                    String wName=dispLoc.getExtras().getString("name", "?");
+                    if (!inRef){
+                        if (centerName==null){
+                            centerName="WPT "+wName;
+                        }
+                        centerPos.put("WPT "+wName,dispLoc);
+                    }
                     break;
                 case TRKWPT:
                 case RTEWPT:
@@ -880,11 +1092,19 @@ public class MainActivity extends AppCompatActivity {
                         prevAlt = null;
                         prevLoc = null;
                         totDist = null;
+                        totDrop=null;
+                        totGain=null;
                     }
                     dispTrk(dispLoc, false);
                     if (setStart) {
                         nbRte++;
                         dispWpt(startLoc, String.valueOf(nbRte) + ": " + curEntName, 1);
+                        if (!inRef) {
+                            if (centerName==null){
+                                centerName=curEntName;
+                            }
+                            centerPos.put(curEntName,startLoc);
+                        }
                         setStart = false;
                     }
                     curEntity = entity;
@@ -905,11 +1125,19 @@ public class MainActivity extends AppCompatActivity {
                         prevAlt = null;
                         prevLoc = null;
                         totDist = null;
+                        totDrop=null;
+                        totGain=null;
                     }
                     dispTrk(dispLoc, false);
                     if (setStart) {
                         nbTrk++;
                         dispWpt(startLoc, String.valueOf(nbTrk) + ": " + curEntName, 1);
+                        if (!inRef) {
+                            if (centerName==null){
+                                centerName=curEntName;
+                            }
+                            centerPos.put(curEntName,startLoc);
+                        }
                         setStart = false;
                     }
                     curEntity = entity;
@@ -944,6 +1172,8 @@ public class MainActivity extends AppCompatActivity {
                     prevAlt=null;
                     prevLoc=null;
                     totDist=null;
+                    totDrop=null;
+                    totGain=null;
                 }
                 if (toSkip>0){
                     dispLoc=skip(dispLoc);
@@ -952,7 +1182,6 @@ public class MainActivity extends AppCompatActivity {
                     if (entity!= Track.enttGpx.TRKWPT) return false;
                 }
                 if (!runningMap){
-                    centerLoc=dispLoc;
                     launchMap(dispLoc);
                     return true;
                 }
@@ -967,6 +1196,7 @@ public class MainActivity extends AppCompatActivity {
                 minAlt=null;
                 maxAlt=null;
                 curEntity=entity;
+                arrowOrg=null;
                 dispLoc=readTrk();
                 return false;
             default:
@@ -1059,7 +1289,18 @@ public class MainActivity extends AppCompatActivity {
         nt.putExtra("LOC",loc);
         nt.putExtra("COLOR",col);
         nt.putExtra("BUBBLE",bubbleMap);
+        if (actTail && rotMap){
+            if (arrowOrg!=null){
+                float dist=arrowOrg.distanceTo(loc);
+                if (dist>10.0){
+                    float bearing=-arrowOrg.bearingTo(loc);
+                    nt.putExtra("ORIENT",bearing);
+                    arrowOrg=loc;
+                }
+            } else arrowOrg=loc;
+        }
         if (startLine){
+            nt.putExtra("ORIENT",0.0f);
             nt.putExtra("START",startLine);
             nt.putExtra("Tail",actTail);
             startLine=false;
@@ -1080,6 +1321,9 @@ public class MainActivity extends AppCompatActivity {
         nbTrk=0;
         running=false;
         track=null;
+        centerPos.clear();
+        centerName=null;
+        mngCenter();
         Intent intent = new Intent(MainActivity.this, Selector.class);
         intent.putExtra("CurrentDir", Directory);
         intent.putExtra("WithDir", false);
@@ -1128,12 +1372,15 @@ public class MainActivity extends AppCompatActivity {
         switch (id){
             case R.id.sp1:
                 divisor=1l;
+                rotMap=ckUp.isChecked();
                 break;
             case R.id.sp2:
                 divisor=2l;
+                rotMap=ckUp.isChecked();
                 break;
             case R.id.sp10:
                 divisor=10l;
+                rotMap=ckUp.isChecked();
                 break;
         }
     }
@@ -1188,6 +1435,7 @@ public class MainActivity extends AppCompatActivity {
         if (runningMap) {
             running = false;
             runningMap = false;
+            mngCenter();
 //            Toast.makeText(context, "Return from map", Toast.LENGTH_LONG).show();
             if (picking){
                 unregisterReceiver(pReceiver);
@@ -1283,7 +1531,7 @@ public class MainActivity extends AppCompatActivity {
         picking=true;
         picked.clear();
         if (!runningMap){
-            launchMap(centerLoc);
+            launchMap(null);
             return;
         }
         Intent nt = new Intent();
@@ -1414,6 +1662,7 @@ public class MainActivity extends AppCompatActivity {
         saved.curEntity = curEntity;
         saved.startLoc = startLoc;
         saved.curEntName = curEntName;
+        inRef=true;
         track = new Track();
         sizeRef = track.open(refPath);
         firstLoc = readTrk();
@@ -1431,7 +1680,6 @@ public class MainActivity extends AppCompatActivity {
             dispatch(5);
         } else {
             dispLoc = firstLoc;
-            inRef = true;
             dispatch(6);
         }
     }

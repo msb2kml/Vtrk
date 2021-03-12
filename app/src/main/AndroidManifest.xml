@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.js.vtrk"
-    android:versionCode="13"
-    android:versionName="1.3 Ref. GPX, GPX composition">
+    android:versionCode="14"
+    android:versionName="1.4 Orienting map">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
@@ -36,6 +36,11 @@
                     android:mimeType="*/*"
                     android:pathPattern=".*\\.gpx"
                     android:scheme="file" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <data android:scheme="geo" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
