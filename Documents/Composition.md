@@ -14,10 +14,10 @@ in the merged set when the **PROCEED** button is used.
 Then the next file could be processed or the storage phase
 could be started.
 
-All items that have been merged are stored in a temporary file
-and a permanent file has to be selected with the common file module.  
+All items that have been merged are stored in a temporary file.
+A permanent file has to be selected with the common file module.  
 A button lets you select the first merged file as destination.
-A **New** button is displayed if the right to write in the current
+Another **New** button is displayed if the right to write in the current
 directory is granted.  
 If the destination file already exists, you have to confirm that it
 could be overwritten and if an error occurs while writing the file you

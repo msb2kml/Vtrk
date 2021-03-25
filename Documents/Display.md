@@ -5,8 +5,9 @@ task using the current file as first merging candidate.
 
 Waypoints, routes and tracks could be displayed.
 
-Two modes of display are available for the tracks: "Entire" and "Vapor Trail".
-The waypoints and routes are always displayed as for the "Entire" mode.
+Two modes of display are available for the tracks: "**Entire**"
+and "**Vapor Trail**".
+The waypoints and routes are always displayed as for the "**Entire**" mode.
 
 The "**+ Waypoint**" button and the "**+ Route**" button performs the
 same function as the "**Entire**" button but, when the end of the file
@@ -20,7 +21,7 @@ and for a route.
 The application sends the instructions to Msb2Map for waypoints, routes
 and tracks starting from the beginning of the file as fast as
 permitted by the processing speed.  
-The map is centered on the first item to display.  
+The map is initially centered on the first item to display.  
 Processing of the file restarts from the beginning if it has
 been interrupted by a return from Msb2Map.
 
@@ -41,6 +42,14 @@ been interrupted by a return from Msb2Map.
 + Tracks: the tracks are displayed the same way as the routes.
 
 ![Routes](Gallery/Routes.jpg)
+
+#### Map center
+
+The name and location of each item (waypoint, route of track) is
+stored as it is displayed. At the return from Msb2Map it is possible
+to select which of theses items should be at the center of the map.  
+Thus, the selection of the center is only possible for the second
+and further entire mode sessions.
 
 
 ### "Vapor trail" mode
@@ -72,6 +81,12 @@ parameter used for the color scheme.
 
 ![Trail](Gallery/Trail.jpg)
 
+#### Orientation
+
+If the "**Orienting**" field has been checked on the main menu,
+the map is rotated to keep heading of the track to the top
+of the screen.
+
 ## Reference GPX
 
 A button at the bottom of the screen lets you select another
@@ -79,8 +94,9 @@ GPX file.
 
 This file could contain waypoints, routes and tracks. It is drawn first
 at each invocation of Msb2Map, before the main file.  
-The mode is equivalent to the "Entire" mode but the waypoints are
-drawn as magenta colored diabolos, the routes and tracks are displayed
+The mode for this file is equivalent to the "Entire" mode but
+the waypoints are drawn as magenta colored diabolos,
+the routes and tracks are displayed
 as lines with a uniform half-transparent magenta color.
 
 This could be used, for example, to compare a track to a route

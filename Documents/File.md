@@ -5,10 +5,10 @@ internal module analog to a specialized  file explorer.
 It allows the navigation in a hierarchy of directories.  
 
 The content of the current directory is presented as a listing.
-The first entry is labeled "../  (up)" and gives access to the
+The first entry is labeled "**../  (up)**" and gives access to the
 parent directory.  
 And the next entries are the names of the sub directories padded
-with a "/" character and allow the descent in the hierarchy.  
+with a "/" character and allows the descent in the hierarchy.  
 They are followed by the names of the files that could be selected.
 Only GPX type files are shown.  
 The entries are alphabetically ordered.
@@ -24,9 +24,6 @@ previously used with this application.
 ### Cancel
 
 The "Cancel" button could be used to terminate the application.  
-But an opportunity is offered before effective termination to
-work without any displayed file to create new waypoints or a
-new route.
 
 ### Hierarchy roots
 
@@ -53,10 +50,11 @@ of directories.
 ### Writing
 
 If the application has been used to create new waypoints or a new route,
+or to compose a new file,
 the same module is used to allow the choice of a file to store
 the new items.  
 It is possible to overwrite or to append to the selected file if it
 already exists.  
-There is also a button "New" to let you create a new file in the
+There is also a button "**New**" to let you create a new file in the
 current directory.
 

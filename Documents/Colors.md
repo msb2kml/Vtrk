@@ -1,6 +1,6 @@
 # Color scheme
 
-The segments of line that draws the tracks could be colored in
+The segments of line that draws the tracks and routes could be colored in
 function of some parameter value.  
 The range of color goes from blue through green to red in 12 steps.  
 A correspondence is established between the color range and the range
@@ -9,20 +9,23 @@ of parameter but the user has the last word.
 If no color scheme is selected, the segment is red for an altitude
 rising and blue for lowering altitude.
 
-### Available parameters
+### Available parameters for tracks
 
 ![Color](Gallery/Color.jpg)
 
 + "height above start" : height (m) relative to the first point
- of the track. Default range: -200 to 200.
+ of the track or route. Default range: -200 to 200.
 + "climb rate m/s" : vertical speed, more appropriate to an
  R/C model or a glider. Default range: -2.0 to 2.0.
 + "climb rate m/h" : vertical speed, appropriate for hiking.
  Default range: -400.0 to 400.0.
 + "speed km/h" : horizontal speed. Default range: 0.0 to 10.0.
-+ "slope" : slope of the track. Default range: -40.0 to 40.0.
++ "slope %" : slope of the track. Default range: -40.0 to 40.0.
 + "distance" : accumulated traveled distance (km).
  Default range: 0.0 to 10.0.
++ "Vert. gain" : sum of all the gains of altitude. Default range: 0 to 1000.
++ "Vert. drop" : sum of all the losses of altitude. Default range:
+ 0 to 1000.
 
 These parameters are computed as needed.  
 The speed is smoothed by computing it from points separated by
@@ -36,7 +39,8 @@ The default color for routes is the black color.
 They could be colored following the "distance" parameter.
 
 If the altitude of each point of a route is specified, the route
-could be colored with the "height above start" or the "slope" parameters.
+could be colored with the "height above start", the "slope",
+the "Vert. gain" or the "Vert. drop" parameters.
 
 The other parameters are not usable as there is no time
 processed for the routes.

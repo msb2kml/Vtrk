@@ -24,7 +24,7 @@ A file to store the new items has to be selected at the return
 from the picking session.  
 A new file could be created in the current directory.  
 Or an existing file could be selected: the content of
-this file could then be completely overwrite or the new data could
+this file could then be completely overwritten or the new data could
 be added near the end of the file.  
 The currently displayed file could also be selected.  
 An alternative file could be selected if there is an error: the file

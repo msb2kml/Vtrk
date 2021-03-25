@@ -23,6 +23,12 @@ This application is a spin off of the
 [Msb2Kml](https://github.com/msb2kml/Msb2Kml/) application: the GPX
 files that it produce are compatible too.
 
+There is a fourth task that displays a single location on the map
+and that is activated by launching with an intent containing 
+an URI of the "geo" type.  
+Only the latitude and longitude are interpreted. Searching for
+a street address would need access to the internet.
+
 # Installation
 The application should be compiled from the sources in this repository
 or downloaded from the
@@ -33,7 +39,7 @@ VtrkXX.apk) should be transferred to the storage of the device
 the opportunity to install it.
 
 The Msb2Map application should be independently installed.
-Minimum version 1.6.
+Minimum version 1.7.
 
 # Permissions
 The Vtrk application needs to read the internal and the external storage.  
@@ -75,7 +81,10 @@ The parameter could be:
  Default range: -400.0 to 400.0.
 + "speed km/h" : Horizontal speed. Default range: 0.0 to 10.0.
 + "slope %" : Slope of the track. Default range: -40.0 to 40.0.
-+ "distance" : accumulated traveled distance (km).
++ "distance" : accumulated traveled distance (km). Default range: 0.0 to 10.0.
++ "Vert. gain" : sum of all the gains of altitude. Default range: 0 to 1000.
++ "Vert. drop" : sum of all the losses of altitude. Default range:
+ 0 to 1000.
 
 Each speed is smoothed by computing them from
 points separated by an interval of at least 10 seconds. 
@@ -115,6 +124,9 @@ parameter that is used for the color (or the altitude).
 There is a marker with a form of reticle at the current
 position: taping on this marker shows the current altitude.
 
+In this mode the map could be automatically rotated to keep the
+heading to the top of the screen.
+
 ![VaporTrail](Documents/Gallery/VaporTrail.jpg)
 
 # Waypoints
@@ -122,7 +134,7 @@ All waypoints are displayed, whatever the mode, as markers
 with the form of a diabolo. Taping on a marker display the name
 of the waypoint.  
 A waypoint is generated at the start of each track or route and has
-the name of its element.
+the name of its element. It is shown as a small black dot.
 
 ![RouteAndWpt](Documents/Gallery/RouteAndWpt.jpg)
 

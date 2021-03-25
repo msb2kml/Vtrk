@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.js.vtrk"
     android:versionCode="14"
-    android:versionName="1.4 Orienting map">
+    android:versionName="1.4 Orienting map + center + geo URI">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
