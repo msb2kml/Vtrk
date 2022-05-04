@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.js.vtrk"
-    android:versionCode="14"
-    android:versionName="1.4 Orienting map + center + geo URI">
+    android:versionCode="15"
+    android:versionName="1.5 Graph and Actions">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
@@ -13,7 +13,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".Compose"></activity>
+        <activity android:name=".Graph"></activity>
+        <activity android:name=".Compose" />
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize"
@@ -39,7 +40,9 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
+
                 <data android:scheme="geo" />
+
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

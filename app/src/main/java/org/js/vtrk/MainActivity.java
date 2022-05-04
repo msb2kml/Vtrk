@@ -36,6 +36,7 @@ import java.lang.ref.WeakReference;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -69,11 +70,11 @@ public class MainActivity extends AppCompatActivity {
     Button bStop;
     Button bSelect;
     Button bEntire;
+    Button bActions;
     Button bWpt;
-    Button bRte;
+    Button bInf;
     Button bcolBy;
     Button bRef;
-    Button bComp;
     Button bCenter;
     EditText etRed;
     EditText etBlue;
@@ -94,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
     Double zoom=15.0;
     Boolean setStart=true;
     Location startLoc=null;
-    Double prevAlt=null;
+    Float prevAlt=null;
     Location dispLoc=null;
     Location prevLoc=null;
     Boolean startLine=true;
@@ -105,14 +106,12 @@ public class MainActivity extends AppCompatActivity {
     String refDirectory =null;
     Boolean inRef =false;
     Boolean Tail=true;
-    Double minAlt=null;
-    Double maxAlt=null;
-    Double blueHeight;
-    Double redHeight;
-    Double valBlue=null;
-    Double valRed=null;
-    Double minVal=null;
-    Double maxVal=null;
+    Float minAlt=null;
+    Float maxAlt=null;
+    Float valBlue=null;
+    Float valRed=null;
+    Float minVal=null;
+    Float maxVal=null;
     Double totDist=null;
     Double totGain=null;
     Double totDrop=null;
@@ -128,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
     String[] defBlue={"-","-200.0","-2.0","-400.0","0.0","-40.0","0.0","0","0"};
     String[] defRed={"-","200.0","2.0","400.0","10.0","40.0","10.0","1000","1000"};
     Integer colSrc=colNone;
+    compute CurComp=null;
     String[] head={ " - (none) ",
                     " height above start ",
                     " climb rate m/s ",
@@ -194,7 +194,6 @@ public class MainActivity extends AppCompatActivity {
             String zz=AI.packageName;
             if (zz.matches("org.js.Msb2Map")){
                 intentMap=Pm.getLaunchIntentForPackage(zz);
-                break;
             }
         }
         if (intentMap==null){
@@ -293,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
         Bundle bundle=new Bundle();
         where.setExtras(bundle);
         where.getExtras().putString("name",name);
-        centerPos.put(name,where);
+        centerPos.put("P: "+name,where);
         centerName=name;
         return true;
     }
@@ -351,15 +350,14 @@ public class MainActivity extends AppCompatActivity {
         bStop=(Button) findViewById(R.id.stop);
         bSelect=(Button) findViewById(R.id.selGpx);
         bEntire=(Button) findViewById(R.id.entire);
-        bWpt =(Button) findViewById(R.id.wpt);
-        bRte=(Button) findViewById(R.id.rte);
+        bActions=(Button) findViewById(R.id.actions);
         bcolBy=(Button) findViewById(R.id.colBy);
         etBlue=(EditText) findViewById(R.id.blueVal);
         etRed=(EditText) findViewById(R.id.redVal);
         bRef =(Button) findViewById(R.id.bBg);
-        bComp=(Button) findViewById(R.id.bComp);
         ckUp=(CheckBox) findViewById(R.id.upCheck);
         bCenter=(Button) findViewById(R.id.centerPos);
+        bInf=(Button) findViewById(R.id.info);
         refPath =null;
         bRef.setText("-none-");
         bcolBy.setOnClickListener(new View.OnClickListener() {
@@ -372,6 +370,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 finish();
+            }
+        });
+        bInf.setEnabled(false);
+        bInf.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                info();
             }
         });
         bSelect.setOnClickListener(new View.OnClickListener() {
@@ -390,63 +395,7 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
                 }
-                Tail=false;
-                nbWpt =0;
-                nbTrk=0;
-                nbRte=0;
-                if (track!=null){
-                    track.close();
-                    track=null;
-                }
-                running=true;
-                dispatch(0);
-            }
-        });
-        bWpt.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (colSrc!=colNone){
-                    if (!getValCol()){
-                        Toast.makeText(context,"Please check the Blue and Red values.",
-                             Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                }
-                Tail=false;
-                nbWpt =0;
-                nbTrk=0;
-                nbRte=0;
-                if (track!=null){
-                    track.close();
-                    track=null;
-                }
-                running=true;
-                picking=true;
-                asWpt=true;
-                dispatch(0);
-            }
-        });
-        bRte.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (colSrc!=colNone){
-                    if (!getValCol()){
-                        Toast.makeText(context,"Please check the Blue and Red values.",
-                             Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                }
-                Tail=false;
-                nbWpt =0;
-                nbTrk=0;
-                nbRte=0;
-                if (track!=null){
-                    track.close();
-                    track=null;
-                }
-                running=true;
-                picking=true;
-                asWpt=false;
+                picking=false;
                 dispatch(0);
             }
         });
@@ -507,14 +456,10 @@ public class MainActivity extends AppCompatActivity {
                 selectRef();
             }
         });
-        bComp.setOnClickListener(new View.OnClickListener() {
+        bActions.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, Compose.class);
-                intent.putExtra("pathGPX",filePath);
-                intent.putExtra("Directory",Directory);
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivityForResult(intent, 5);
+                action();
             }
         });
         bCenter.setOnClickListener(new View.OnClickListener() {
@@ -532,27 +477,96 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    void info(){
+        if (centerName==null || !centerPos.containsKey(centerName)) return;
+        String name=centerName.substring(3);
+        if (centerName.startsWith("T:")) graph(name,centerPos.get(centerName));
+        else if (centerName.startsWith("R:")) infoRoute(name,centerPos.get(centerName));
+        else if (centerName.startsWith("P:")) infoPoint(name,centerPos.get(centerName));
+    }
+
+    void infoRoute(String name, Location where){
+        Intent intent=new Intent(MainActivity.this,Graph.class);
+        intent.putExtra("File",filePath);
+        intent.putExtra("Track",name);
+        intent.putExtra("Route",true);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+    }
+
+    void infoPoint(String name,Location where){
+        Double lat=where.getLatitude();
+        Double lon=where.getLongitude();
+        String inf=String.format(Locale.ENGLISH,
+                    "Latitude   %.6f\n"+
+                           "Longitude  %.6f\n",lat,lon);
+        if (where.hasAltitude()){
+            Double alt=where.getAltitude();
+            inf+=String.format(Locale.ENGLISH,
+                    "Altitude      %.2f",alt);
+        }
+        infoMsg("Information about a waypoint",
+                "Name "+name+"\n"+inf);
+    }
+
+    AlertDialog dialog=null;
+
+    void infoMsg(String title, String Message){
+        AlertDialog.Builder build=new AlertDialog.Builder(this);
+        View vi=View.inflate(this,R.layout.info,null);
+        TextView tinfo=vi.findViewById(R.id.infoTitle);
+        TextView tMsg=vi.findViewById(R.id.info);
+        Button ok=vi.findViewById(R.id.okInfo);
+        ok.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cOk();
+            }
+        });
+        tinfo.setText(title);
+        tMsg.setText(Message);
+        build.setView(vi);
+        dialog=build.create();
+        dialog.show();
+    }
+
+    void cOk(){
+        if (dialog!=null) dialog.dismiss();
+        dialog=null;
+    }
+
+    void graph(String trackName, Location where){
+        Intent intent=new Intent(MainActivity.this,Graph.class);
+        intent.putExtra("File",filePath);
+        intent.putExtra("Track",trackName);
+        intent.putExtra("Route",false);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+    }
+
     void mngCenter(){
         if (centerPos.isEmpty() || centerName==null){
             bCenter.setText(" - ");
-            bCenter.setEnabled(false);
             centerName=null;
+            bInf.setEnabled(false);
         } else {
             if (!centerPos.containsKey(centerName)){
                 TreeSet<String> s=new TreeSet(centerPos.keySet());
                 centerName=s.first();
             }
+            bInf.setEnabled(true);
             bCenter.setText(centerName);
-            bCenter.setEnabled(true);
         }
+        bCenter.setEnabled(!centerPos.isEmpty());
     }
 
     void slctCenter(){
         final String[] theList;
         if (centerPos.isEmpty()) return;
         theList=centerPos.keySet().toArray(new String[centerPos.size()]);
+        Arrays.sort(theList);
         AlertDialog.Builder build=new AlertDialog.Builder(this);
-        build.setTitle("Select the center of the map");
+        build.setTitle("Select the focus");
         build.setItems(theList, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -563,7 +577,6 @@ public class MainActivity extends AppCompatActivity {
         build.setNegativeButton("None", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                centerPos.clear();
                 centerName=null;
                 mngCenter();
             }
@@ -571,11 +584,155 @@ public class MainActivity extends AppCompatActivity {
         build.show();
     }
 
+    void action(){
+        String prevName=(new File(filePath)).getName();
+        String[] actions;
+        if (centerName==null) {
+            String[] actionsX = {"Add a route",
+                    "Add waypoints",
+                    "Selective merge of GPX files with " + prevName,
+                    " ...and Convert Tracks to Routes"};
+            actions=actionsX;
+        } else {
+            String type;
+            String name=centerName.substring(3);
+            if (centerName.startsWith("R:")) type="Rename Route ";
+            else if (centerName.startsWith("T:")) type="Rename Track ";
+            else type="Rename Waypoint ";
+            String[] actionsX={type+name,
+                    "Add a route",
+                    "Add waypoints",
+                    "Selective merge of GPX files with " + prevName,
+                    " ...and Convert Tracks to Routes"};
+            actions=actionsX;
+        }
+        AlertDialog.Builder build=new AlertDialog.Builder(this);
+        build.setTitle("Select the action to perform");
+        build.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+
+            }
+        });
+        build.setItems(actions, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Intent intent;
+                if (centerName!=null) {
+                    if (which==0) {
+                        entSubst();
+                        return;
+                    }
+                    which--;
+                }
+                switch (which){
+                    case 0:
+                        if (colSrc!=colNone){
+                            if (!getValCol()){
+                                Toast.makeText(context,"Please check the Blue and Red values.",
+                                          Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                        }
+                        picking=true;
+                        asWpt=false;
+                        dispatch(0);
+                        break;
+                    case 1:
+                        if (colSrc!=colNone){
+                            if (!getValCol()){
+                                Toast.makeText(context,"Please check the Blue and Red values.",
+                                      Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                        }
+                        picking=true;
+                        asWpt=true;
+                        dispatch(0);
+                        break;
+                    case 2:
+                        intent=new Intent(MainActivity.this,Compose.class);
+                        intent.putExtra("pathGPX",filePath);
+                        intent.putExtra("Directory",Directory);
+                        intent.putExtra("Convert",false);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        startActivityForResult(intent, 5);
+                        break;
+                    case 3:
+                        intent=new Intent(MainActivity.this,Compose.class);
+                        intent.putExtra("pathGPX",filePath);
+                        intent.putExtra("Directory",Directory);
+                        intent.putExtra("Convert",true);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        startActivityForResult(intent, 5);
+                        break;
+                }
+            }
+        });
+        build.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                });
+        build.show();
+    }
+
+    void entSubst(){
+        String type;
+        String name=centerName.substring(3);
+        if (centerName.startsWith("R:")) type="Rename Route ";
+        else if (centerName.startsWith("T:")) type="Rename Track ";
+        else type="Rename Waypoint ";
+        type+=name+" to:";
+        AlertDialog.Builder builder=new AlertDialog.Builder(this);
+        builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                noChange();
+            }
+        });
+        View renDiag=View.inflate(this,R.layout.rename,null);
+        TextView title=renDiag.findViewById(R.id.reTitle);
+        final EditText vName=renDiag.findViewById(R.id.nwName);
+        title.setText(type);
+        builder.setView(renDiag)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String newName=vName.getText().toString();
+                        InputMethodManager imm = (InputMethodManager)
+                                    context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+                        imm.hideSoftInputFromWindow(vName.getWindowToken(),0);
+                        if (newName!=null) newName=newName.trim();
+                        if (newName==null || newName.isEmpty()) noChange();
+                        else doSubst(newName);
+                    }
+                });
+        builder.show();
+    }
+
+    void noChange(){
+        Toast.makeText(context,"No Change",Toast.LENGTH_LONG).show();
+    }
+
+    void doSubst(String newName){
+        Intent intent=new Intent(MainActivity.this,Compose.class);
+        intent.putExtra("pathGPX",filePath);
+        intent.putExtra("Directory",Directory);
+        intent.putExtra("Convert",false);
+        intent.putExtra("Org",centerName);
+        intent.putExtra("Subst",newName);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivityForResult(intent, 5);
+    }
+
     void taskChoice(){
         String[] tasks={"Display a GPX file",
                         "Create waypoints",
                          "Create a route",
-                         "Selective merge of GPX files"};
+                         "Compose: Selective merge of GPX files",
+                         "...and Convert Tracks to Routes"};
         AlertDialog.Builder build=new AlertDialog.Builder(this);
         build.setTitle("Task selector")
                 .setOnCancelListener(new DialogInterface.OnCancelListener() {
@@ -587,6 +744,7 @@ public class MainActivity extends AppCompatActivity {
                 .setItems(tasks, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        Intent intent = new Intent(MainActivity.this, Compose.class);
                         switch (which){
                             case 0:
                                 selGpx();
@@ -600,10 +758,16 @@ public class MainActivity extends AppCompatActivity {
                                 initPick();
                                 break;
                             case 3:
-                                Intent intent = new Intent(MainActivity.this,
-                                        Compose.class);
                                 intent.putExtra("pathGPX",filePath);
                                 intent.putExtra("Directory",Directory);
+                                intent.putExtra("Convert",false);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                                startActivityForResult(intent, 5);
+                                break;
+                            case 4:
+                                intent.putExtra("pathGPX",filePath);
+                                intent.putExtra("Directory",Directory);
+                                intent.putExtra("Convert",true);
                                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                                 startActivityForResult(intent, 5);
                                 break;
@@ -732,7 +896,7 @@ public class MainActivity extends AppCompatActivity {
         if (field==null || field.isEmpty()){ return false; }
         try {
             num=nfe.parse(field);
-            valBlue=num.doubleValue();
+            valBlue=num.floatValue();
         } catch (ParseException e) {return false;}
         defBlue[colSrc]=field;
         field=etRed.getText().toString();
@@ -740,7 +904,7 @@ public class MainActivity extends AppCompatActivity {
         if (field==null || field.isEmpty()){ return false; }
         try {
             num=nfe.parse(field);
-            valRed=num.doubleValue();
+            valRed=num.floatValue();
         } catch (ParseException e) {return false; }
         defRed[colSrc]=field;
         if (Math.abs(valBlue-valRed)<0.001f) return false;
@@ -834,130 +998,59 @@ public class MainActivity extends AppCompatActivity {
         return loc;
     }
 
-    Location smooth(Location disploc){
-        Location refLoc;
-        if (colSrc==colNone) return null;
-        if ((colSrc==colHeight || colSrc==colSlp ||
-                colSrc==colVgain || colSrc==colVdrop) && !disploc.hasAltitude()) return null;
-        if (stack.size()==0) {
-            stack.addFirst(disploc);
-            return null;
-        }
-        if (colSrc==colVgain || colSrc==colVdrop){
-            refLoc=stack.get(0);
-            stack.addFirst(disploc);
-        } else if (colSrc==colHeight || colSrc==colSlp){
-            Double alt=disploc.getAltitude();
-            Double alt0=stack.get(0).getAltitude();
-            if (Math.abs(alt-alt0)>1.0) stack.addFirst(disploc);
-            refLoc=stack.getLast();
-//            Double altL=stack.getLast().getAltitude();
-//            if (Math.abs(alt-altL)<1.0) return null;
+    void setComp(Location initial){
+        if (colSrc==colHeight){
+            CurComp=new Vheight(initial);
+        } else if (colSrc==colMpS){
+            CurComp=new Vmps(initial);
+        } else if (colSrc==colMpH){
+            CurComp=new Vmph(initial);
+        } else if (colSrc==colKpH){
+            CurComp=new Vspd(initial);
+        } else if (colSrc==colSlp){
+            CurComp=new Vslp(initial);
+        } else if (colSrc==colDist){
+            CurComp=new Vdist(initial);
+        } else if (colSrc==colVgain){
+            CurComp=new Vgain(initial);
+        } else if (colSrc==colVdrop){
+            CurComp=new Vdrop(initial);
         } else {
-            if ((disploc.getTime() - stack.get(0).getTime() > 1000L)) {
-                stack.addFirst(disploc);
-            }
-            Long dif = disploc.getTime() - stack.getLast().getTime();
-            if (dif < 10000L) {
-                return null;
-            }
-            refLoc=stack.getLast();
+            CurComp=null;
         }
-        if (stack.size() > 10) stack.removeLast();
-        return refLoc;
     }
 
-    int colorz(Double val){
+    int colorz(Float val){
         if (val==null) return Color.BLACK;
-        double norm=(val-valBlue)/(valRed-valBlue);
+        float norm=(val-valBlue)/(valRed-valBlue);
         int v=(int)Math.round(norm*nColor);
         v=Math.max(1,Math.min(nColor,v))-1;
         return lineColor[v];
     }
 
-    Double getVal(Location thisLoc){
-        Double alt;
-        if (thisLoc.hasAltitude() && startLoc.hasAltitude()) alt=thisLoc.getAltitude();
-        else alt=null;
-        if (colSrc==colNone){
-            return alt;
-        } else if (colSrc==colHeight){
-            if (alt!=null) return alt-startLoc.getAltitude();
-            else return null;
-        } else if (colSrc==colMpS){
-            if (alt==null) return null;
-            else {
-                Location refLoc = smooth(thisLoc);
-                if (refLoc == null) return null;
-                else {
-                    Long dif = thisLoc.getTime() - refLoc.getTime();
-                    Double h = alt - refLoc.getAltitude();
-                    return h / dif.doubleValue() * 1000.0;
-                }
-            }
-        } else if (colSrc==colMpH){
-            if (alt==null) return null;
-            else {
-                Location refLoc = smooth(thisLoc);
-                if (refLoc == null) return null;
-                else {
-                    Long dif = thisLoc.getTime() - refLoc.getTime();
-                    Double h = alt - refLoc.getAltitude();
-                    return h / dif.doubleValue() * 1000.0 * 3600.0;
-                }
-            }
-        } else if (colSrc==colKpH){
-            if (startLoc.getTime()==0L || thisLoc.getTime()==0L) return null;
-            else {
-                Location refLoc = smooth(thisLoc);
-                if (refLoc == null) return null;
-                else {
-                    Long dif = thisLoc.getTime() - refLoc.getTime();
-                    Double dist = haver.lHaversine(refLoc, thisLoc);
-                    return dist / dif.doubleValue() * 1000.0 * 3600.0;
-                }
-            }
-        } else if (colSrc==colSlp) {
-            if (alt == null) return null;
-            else {
-                Location refLoc = smooth(thisLoc);
-                if (refLoc == null) return null;
-                else {
-                    Double dis = haver.lHaversine(refLoc, thisLoc) * 1000.0;
-                    if (dis < 1.0) return null;
-                    else {
-                        return (alt - refLoc.getAltitude()) / dis * 100.0;
-                    }
-                }
-            }
-        } else if (colSrc==colDist) {
-            if (totDist == null) totDist = 0.0;
-            if (prevLoc != null) {
-                Double dis = haver.lHaversine(prevLoc, thisLoc);
-                totDist += dis;
-            }
-            prevLoc = thisLoc;
-            return totDist;
-        } else if (colSrc==colVgain) {
-            if (alt==null) return null;
-            Location refLoc = smooth(thisLoc);
-            if (refLoc == null) return null;
-            Double h = alt - refLoc.getAltitude();
-            if (totGain==null) totGain=0.0;
-            if (h>0.0) totGain+=h;
-            return totGain;
-        } else if (colSrc==colVdrop){
-            if (alt==null) return null;
-            Location refLoc = smooth(thisLoc);
-            if (refLoc == null) return null;
-            Double h = alt - refLoc.getAltitude();
-            if (totDrop==null) totDrop=0.0;
-            if (h<0.0) totDrop+=-h;
-            return totDrop;
-        } else return null;
+    Float hereVal(Location thisLoc){
+        if (CurComp==null){
+            Double alt=null;
+            if (thisLoc.hasAltitude()) {
+                alt=thisLoc.getAltitude();
+                return alt.floatValue();
+            } else return null;
+        }
+        return CurComp.value(thisLoc);
     }
 
     void dispatch(int from){
+        if (from==0){
+            Tail=false;
+            nbTrk=0;
+            nbRte=0;
+            nbWpt=0;
+            if (track!=null){
+                  track.close();
+                  track=null;
+            }
+            running=true;
+        }
         if (singleLoc && !inRef){
             drwSingle();
             return;
@@ -985,6 +1078,7 @@ public class MainActivity extends AppCompatActivity {
         eof();
     }
 
+
     void drwSingle(){
         if (!runningMap){
             launchMap(centerPos.get(centerName));
@@ -995,6 +1089,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     Boolean noTail() {
+        Double alt;
         if (dispLoc == null) return true;
         int nbBroadcast = 0;
         Track.enttGpx entity = (Track.enttGpx) dispLoc.getExtras().getSerializable("ENTITY");
@@ -1014,10 +1109,11 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case TRK:
-                curEntName = "Track " + dispLoc.getExtras().getString("name", null);
+                curEntName = dispLoc.getExtras().getString("name", null);
                 setStart = true;
                 startLoc = null;
                 stack.clear();
+                setComp(dispLoc);
                 minVal = null;
                 maxVal = null;
                 minAlt = null;
@@ -1026,10 +1122,11 @@ public class MainActivity extends AppCompatActivity {
                 dispLoc = readTrk();
                 return false;
             case RTE:
-                curEntName = "Route " + dispLoc.getExtras().getString("name", null);
+                curEntName = dispLoc.getExtras().getString("name", null);
                 setStart = true;
                 startLoc = null;
                 stack.clear();
+                setComp(dispLoc);
                 minVal = null;
                 maxVal = null;
                 minAlt = null;
@@ -1061,12 +1158,13 @@ public class MainActivity extends AppCompatActivity {
                     if (inRef) tp=2;
                     dispWpt(dispLoc, String.format(Locale.ENGLISH, "%d waypoints", nbWpt),
                             tp);
-                    String wName=dispLoc.getExtras().getString("name", "?");
+                    String wName=dispLoc.getExtras().getString("name");
+                    if (wName==null) wName="WPT "+nbWpt.toString();
                     if (!inRef){
                         if (centerName==null){
-                            centerName="WPT "+wName;
+                            centerName=wName;
                         }
-                        centerPos.put("WPT "+wName,dispLoc);
+                        centerPos.put("P: "+wName,dispLoc);
                     }
                     break;
                 case TRKWPT:
@@ -1083,7 +1181,8 @@ public class MainActivity extends AppCompatActivity {
                             startLoc = dispLoc;
                             startLoc.getExtras().putString("name", curEntName);
                             if (startLoc.hasAltitude()) {
-                                minAlt = startLoc.getAltitude();
+                                alt=startLoc.getAltitude();
+                                minAlt =alt.floatValue();
                                 maxAlt = minAlt;
                             }
                         }
@@ -1098,12 +1197,13 @@ public class MainActivity extends AppCompatActivity {
                     dispTrk(dispLoc, false);
                     if (setStart) {
                         nbRte++;
+                        if (curEntName==null) curEntName="RTE "+nbRte.toString();
                         dispWpt(startLoc, String.valueOf(nbRte) + ": " + curEntName, 1);
                         if (!inRef) {
                             if (centerName==null){
                                 centerName=curEntName;
                             }
-                            centerPos.put(curEntName,startLoc);
+                            centerPos.put("R: "+curEntName,startLoc);
                         }
                         setStart = false;
                     }
@@ -1112,11 +1212,14 @@ public class MainActivity extends AppCompatActivity {
                 case TRK:
                     if (entity != Track.enttGpx.TRKWPT) return false;
                     if (setStart) {
+                        nbTrk++;
+                        if (curEntName==null) curEntName="TRK "+nbTrk.toString();
                         if (startLoc == null) {
                             startLoc = dispLoc;
                             startLoc.getExtras().putString("name", curEntName);
                             if (startLoc.hasAltitude()) {
-                                minAlt = startLoc.getAltitude();
+                                alt=startLoc.getAltitude();
+                                minAlt =alt.floatValue();
                                 maxAlt = minAlt;
                             }
                         }
@@ -1130,13 +1233,12 @@ public class MainActivity extends AppCompatActivity {
                     }
                     dispTrk(dispLoc, false);
                     if (setStart) {
-                        nbTrk++;
                         dispWpt(startLoc, String.valueOf(nbTrk) + ": " + curEntName, 1);
                         if (!inRef) {
                             if (centerName==null){
                                 centerName=curEntName;
                             }
-                            centerPos.put(curEntName,startLoc);
+                            centerPos.put("T: "+curEntName,startLoc);
                         }
                         setStart = false;
                     }
@@ -1152,6 +1254,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     Boolean withTail(){
+        Double alt;
         if (dispLoc==null || !Tail) return false;
         Track.enttGpx entity=(Track.enttGpx)dispLoc.getExtras().getSerializable("ENTITY");
         switch (entity){
@@ -1165,8 +1268,11 @@ public class MainActivity extends AppCompatActivity {
                         startLoc=dispLoc;
                         startTime=startLoc.getTime();
                         startLoc.getExtras().putString("name",curEntName);
-                        minAlt=startLoc.getAltitude();
-                        maxAlt=minAlt;
+                        if (startLoc.hasAltitude()) {
+                                alt=startLoc.getAltitude();
+                                minAlt =alt.floatValue();
+                                maxAlt = minAlt;
+                            }
                     }
                     startLine=true;
                     prevAlt=null;
@@ -1187,10 +1293,11 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case TRK:
-                curEntName="Track "+dispLoc.getExtras().getString("name",null);
+                curEntName=dispLoc.getExtras().getString("name",null);
                 setStart=true;
                 startLoc=null;
                 stack.clear();
+                setComp(dispLoc);
                 minVal=null;
                 maxVal=null;
                 minAlt=null;
@@ -1206,6 +1313,7 @@ public class MainActivity extends AppCompatActivity {
         dispTrk(dispLoc,true);
         if (setStart){
             nbTrk++;
+            if (curEntName==null) curEntName="TRK "+nbTrk.toString();
             dispWpt(startLoc,String.valueOf(nbTrk)+": "+ curEntName,1);
             setStart=false;
         }
@@ -1243,7 +1351,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void dispTrk(Location loc, Boolean actTail){
-        Double val=0.0;
+        Float val=0.0f;
         String label="";
         Integer col=Color.BLACK;
         String bubbleMap=" - ";
@@ -1251,10 +1359,10 @@ public class MainActivity extends AppCompatActivity {
         label=Labels[colSrc];
         if (inRef) col=HalfMagenta;
         else {
-            val = getVal(loc);
+            val=hereVal(loc);
             if (val == null) {
                 col = Color.BLACK;
-                val = 0.0;
+                val = 0.0f;
             } else {
                 if (colSrc == colNone) {
                     if (prevAlt == null || val > prevAlt) {

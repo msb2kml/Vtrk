@@ -2,8 +2,6 @@ package org.js.vtrk;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Application;
-import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -55,7 +53,6 @@ public class Selector extends AppCompatActivity {
             }
         }
         nav=new navDir(exPath,rmvPath);
-//        if (currentDir==null) currentDir=exPath;
         nav.setCurDir(currentDir);
         String Mask=intent.getStringExtra("Mask");
         nav.setMask(Mask);
@@ -94,7 +91,6 @@ public class Selector extends AppCompatActivity {
         }
         theSelected = -1;
         AlertDialog.Builder build=new AlertDialog.Builder(this);
-//                    android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         if (Title==null) build.setTitle(toLabel(nav.getDir()));
         else build.setTitle((Title+toLabel(nav.getDir())));
         build.setOnCancelListener(new DialogInterface.OnCancelListener() {
@@ -145,7 +141,6 @@ public class Selector extends AppCompatActivity {
         }
         theSelected=-1;
         AlertDialog.Builder build=new AlertDialog.Builder(this);
-//                    android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         if (Title==null) build.setTitle(toLabel(nav.getDir()));
         else build.setTitle((Title+toLabel(nav.getDir())));
         build.setOnCancelListener(new DialogInterface.OnCancelListener() {
@@ -182,7 +177,9 @@ public class Selector extends AppCompatActivity {
                 conclusion(prevPath);
             }
         });
-        if (creable && nav.getWriteable()) build.setPositiveButton("New",
+        String bNew="New";
+        if (!nav.getWriteable()) bNew="not writable";
+        if (creable) build.setPositiveButton(bNew,
                 new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -216,6 +213,11 @@ public class Selector extends AppCompatActivity {
     }
 
     void create(){
+        if (!nav.getWriteable()){
+            Toast.makeText(context,"Repertory not writable",Toast.LENGTH_LONG).show();
+            selNoDir();
+            return;
+        }
         AlertDialog.Builder builder=new AlertDialog.Builder(this);
         builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override

@@ -48,6 +48,8 @@ public class Track {
     Long position;
     String opening=null;
     String ending=null;
+    String fileName=null;
+    Integer nbItems=0;
 
     public Long open(String path){
         pLat=Pattern.compile(patrnLat);
@@ -59,6 +61,9 @@ public class Track {
         filePath=path;
         File fi=new File(filePath);
         if (!fi.exists() || !fi.canRead()) return 0L;
+        String[] fnam=fi.getName().split("\\.");
+        fileName=fnam[0];
+        nbItems=0;
         try {
             FileInputStream input=new FileInputStream(filePath);
             InputStreamReader reader=new InputStreamReader(input);
@@ -158,6 +163,9 @@ public class Track {
                                     if (loc!=null){
                                         curEntity=enttGpx.WPT;
                                         probe=Pattern.compile(endwpt);
+                                        nbItems++;
+                                        loc.getExtras().putString("name",fileName+"_"+
+                                                nbItems.toString());
                                     }
                                     break;
                                 case "<trk":
@@ -166,6 +174,9 @@ public class Track {
                                         Bundle bundle = new Bundle();
                                         bundle.putSerializable("ENTITY", enttGpx.TRK);
                                         locSup.setExtras(bundle);
+                                        nbItems++;
+                                        locSup.getExtras().putString("name",fileName+"_"+
+                                                nbItems.toString());
                                         curnt += m.end(3);
                                         position += m.end(3);
                                         curEntity = enttGpx.TRK;
@@ -178,6 +189,9 @@ public class Track {
                                         Bundle bundle = new Bundle();
                                         bundle.putSerializable("ENTITY", enttGpx.RTE);
                                         locSup.setExtras(bundle);
+                                        nbItems++;
+                                        locSup.getExtras().putString("name",fileName+"_"+
+                                                nbItems.toString());
                                         curnt += m.end(3);
                                         position += m.end(3);
                                         curEntity = enttGpx.RTE;

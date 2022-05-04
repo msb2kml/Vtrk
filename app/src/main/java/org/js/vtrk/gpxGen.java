@@ -15,6 +15,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
+import java.net.URLEncoder;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystemException;
 import java.util.HashMap;
@@ -34,12 +38,14 @@ public class gpxGen {
     String srcPath=null;
     Boolean asWpt=false;
     String rteName=null;
+    Integer rtePtNb=0;
     Map<Integer,MainActivity.NamedLoc>picked= new HashMap();
     Boolean overwrite=false;
     WeakReference<MainActivity> mActivity;
     static File temp;
     String tempPath=null;
     String copyLine=null;
+    String comment;
 
     void outChoice(final WeakReference<MainActivity> mActivity, String dir,String orgFile,
                      Boolean asw,String rten, Map<Integer,MainActivity.NamedLoc> pkd){
@@ -167,7 +173,7 @@ public class gpxGen {
                              loc.getLongitude()));
                      if (loc.hasAltitude()) outGpx.write(String.format(Locale.ENGLISH,
                              "  <ele>%.3f</ele>\n",loc.getAltitude()));
-                     outGpx.write("  <name>"+namedLoc.name+"</name>\n");
+                     outGpx.write("  <name>"+nameNorm(namedLoc.name)+"</name>\n");
                      outGpx.write(" </wpt>\n");
                 } catch (IOException e){
                     errorShow(e.getMessage());
@@ -179,7 +185,9 @@ public class gpxGen {
         } else {
             try {
                 outGpx.write(" <rte>\n");;
+                rteName=nameNorm(rteName);
                 if (rteName!=null) outGpx.write("   <name>"+rteName+"</name>\n");
+                rtePtNb=0;
             } catch (IOException e){
                 errorShow(e.getMessage());
                 if (srcPath!=null && srcPath.contentEquals(fPath)) srcPath=null;
@@ -191,15 +199,17 @@ public class gpxGen {
                 namedLoc=picked.get(indx);
                 loc=namedLoc.loc;
                 try {
+                    rtePtNb++;
                     outGpx.write(" <rtept ");
                      outGpx.write(String.format(Locale.ENGLISH,"lat=\"%.8f\" ",
                              loc.getLatitude()));
-                     outGpx.write(String.format(Locale.ENGLISH,"lon=\"%.8f\">\n",
+                     outGpx.write(String.format(Locale.ENGLISH,"lon=\"%.8f\">",
                              loc.getLongitude()));
                      if (loc.hasAltitude()) outGpx.write(String.format(Locale.ENGLISH,
-                             "  <ele>%.3f</ele>\n",loc.getAltitude()));
-                     if (namedLoc.name!=null)
-                         outGpx.write("  <name>"+namedLoc.name+"</name>\n");
+                             "  <ele>%.3f</ele>",loc.getAltitude()));
+//                     comment=namedLoc.name;
+//                     if (comment==null) comment=rtePtNb.toString();
+//                     outGpx.write("  <cmt>"+comment+"</cmt>");
                      outGpx.write(" </rtept>\n");
                 } catch (IOException e){
                     errorShow(e.getMessage());
@@ -244,6 +254,13 @@ public class gpxGen {
             Toast.makeText(mActivity.get(),"Added to "+fPath,Toast.LENGTH_LONG).show();
         }
         mActivity.get().start2(fPath);
+    }
+
+    String nameNorm(String name){
+        if (name==null) return null;
+        byte[] in=name.getBytes(Charset.forName("UTF-8"));
+        String norm=new String(in);
+        return norm;
     }
 
     Boolean copy (){

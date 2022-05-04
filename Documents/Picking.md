@@ -30,8 +30,8 @@ The currently displayed file could also be selected.
 An alternative file could be selected if there is an error: the file
 or the directory could be write protected.
 
-The removable storage is often not writable: see the "SAF" documentation
-file.
+The removable storage is often not writable: see the 
+[SAF](SAF.md) documentation file.
 
 The newly written file become the current file.
 

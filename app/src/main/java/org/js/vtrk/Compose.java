@@ -20,7 +20,6 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -41,6 +40,7 @@ public class Compose extends AppCompatActivity {
     int nbRte=0;
     Boolean lastSave=true;
     public Nume nume=null;
+    Boolean mkRte=false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,12 +49,31 @@ public class Compose extends AppCompatActivity {
         setContentView(R.layout.activity_compose);
         progress=(ProgressBar)findViewById(R.id.progressBar);
         context=getApplicationContext();
-        tv=(TextView) findViewById(R.id.textView);
+        tv=(TextView) findViewById(R.id.info);
         Intent intent=getIntent();
         curDir=intent.getStringExtra("Directory");
         orgnGpx=intent.getStringExtra("pathGPX");
-        if (orgnGpx==null) other(curDir);
+        mkRte=intent.getBooleanExtra("Convert",false);
+        String subst=intent.getStringExtra("Subst");
+        String org=intent.getStringExtra("Org");
+        if (subst!=null && org!=null) renamer(orgnGpx,org,subst);
+        else if (orgnGpx==null) other(curDir);
         else searchItems(orgnGpx);
+    }
+
+    void other(String directory){
+        Intent intent=new Intent(Compose.this, Selector.class);
+        if (directory !=null) intent.putExtra("CurrentDir", directory);
+        intent.putExtra("WithDir",false);
+        intent.putExtra("Mask","(?i).+\\.gpx");
+        intent.putExtra("Title","Other GPX to merge?      ");
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivityForResult(intent,23);
+    }
+
+    void searchItems(String path){
+        if (nume==null) nume=new Nume();
+        nume.Nume(path);
     }
 
     void showItems(final String path, final ArrayList<Location>itemsList){
@@ -74,13 +93,14 @@ public class Compose extends AppCompatActivity {
                     itemsList.get(i).getExtras().getSerializable("ENTITY");
             switch (entity){
                 case WPT:
-                    pre="WPT: ";
+                    pre=" WPT: ";
                     break;
                 case TRK:
-                    pre="TRK: ";
+                    if (mkRte) pre="!TRK: ";
+                    else pre=" TRK: ";
                     break;
                 case RTE:
-                    pre="RTE: ";
+                    pre=" RTE: ";
                     break;
             }
             String name=itemsList.get(i).getExtras().getString("name",null);
@@ -161,18 +181,16 @@ public class Compose extends AppCompatActivity {
                 mActivity.get().nume.setProg(msg);
             } else if (code==fileProcess.msgTyp.END.ordinal()) {
                 mActivity.get().nume.setEnd();
-            } else if (code==fileProcess.msgTyp.ENDS.ordinal()){
+            } else if (code==fileProcess.msgTyp.ENDS.ordinal()) {
                 mActivity.get().nume.setEndSave(msg);
+            } else if (code==fileProcess.msgTyp.ENDREN.ordinal()){
+                mActivity.get().nume.setEndRen(msg);
             } else if (code==fileProcess.msgTyp.ERROR.ordinal()){
                 mActivity.get().nume.error(msg);
             }
         }
     }
 
-    void searchItems(String path){
-        if (nume==null) nume=new Nume();
-        nume.Nume(path);
-    }
 
 
     public class Nume {
@@ -196,14 +214,15 @@ public class Compose extends AppCompatActivity {
                     Looper.prepare();
                     fileProcess fp=new fileProcess();
                     fp.process(mHandler,fileProcess.Request.ENUM,path,null,
-                            null,null);
+                            null,null, mkRte,null);
                     Looper.loop();
                 }
             }).start();
         }
 
         void Nume(final String path, final FileWriter outGpx,
-                  final ArrayList<Location> itemsList, final boolean[] setOptions){
+                  final ArrayList<Location> itemsList, final boolean[] setOptions,
+                  final String orgName, final String subst){
             Path=path;
             File f=new File(Path);
             curDir=f.getParent();
@@ -216,7 +235,11 @@ public class Compose extends AppCompatActivity {
                 public void run(){
                     Looper.prepare();
                     fileProcess fp=new fileProcess();
-                    fp.process(mHandler,fileProcess.Request.SAVE,path,outGpx,list,setOptions);
+                    fileProcess.Request thisReq;
+                    if (orgName!=null && subst!=null) thisReq=fileProcess.Request.RENAME;
+                    else thisReq=fileProcess.Request.SAVE;
+                    fp.process(mHandler,thisReq,path,subst,outGpx,
+                            setOptions,mkRte,orgName);
                     Looper.loop();
                 }
             }).start();
@@ -254,6 +277,14 @@ public class Compose extends AppCompatActivity {
             else moreQ();
         }
 
+        void setEndRen(Message msg){
+            nbRte=msg.arg1;
+            nbTrk=msg.arg2;
+            nbWpt=(Integer)msg.obj;
+            closeTemp();
+            selectOut();
+        }
+
         void error(Message msg){
             String ermes=(String)msg.obj;
             errorShow(ermes);
@@ -261,10 +292,16 @@ public class Compose extends AppCompatActivity {
 
     }
 
+    void renamer(String path,String org, String subst){
+        if (tmpGpx==null) openTemp();
+        if (nume==null) nume=new Nume();
+        nume.Nume(path,tmpGpx,null,null,org,subst);
+    }
+
     void saver(String path,ArrayList<Location> itemsList, boolean[] setOptions){
         if (tmpGpx==null) openTemp();
         if (nume==null) nume=new Nume();
-        nume.Nume(path,tmpGpx,itemsList,setOptions);
+        nume.Nume(path,tmpGpx,itemsList,setOptions,null,null);
     }
 
     void openTemp(){
@@ -297,15 +334,6 @@ public class Compose extends AppCompatActivity {
         }
     }
 
-    void other(String directory){
-        Intent intent=new Intent(Compose.this, Selector.class);
-        if (directory !=null) intent.putExtra("CurrentDir", directory);
-        intent.putExtra("WithDir",false);
-        intent.putExtra("Mask","(?i).+\\.gpx");
-        intent.putExtra("Title","Other GPX to merge?      ");
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivityForResult(intent,23);
-    }
 
     void selectOut(){
         Intent intent=new Intent(context,Selector.class);
@@ -318,7 +346,6 @@ public class Compose extends AppCompatActivity {
         intent.putExtra("Title","Save as existing or new file in ");
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivityForResult(intent,24);
-
     }
 
     void ckOver(){

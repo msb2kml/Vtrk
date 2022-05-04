@@ -1,6 +1,6 @@
 # Color scheme
 
-The segments of line that draws the tracks and routes could be colored in
+The segments of line figuring the tracks and routes could be colored in
 function of some parameter value.  
 The range of color goes from blue through green to red in 12 steps.  
 A correspondence is established between the color range and the range

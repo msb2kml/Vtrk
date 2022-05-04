@@ -1,27 +1,28 @@
 # Display task
 
-There is a button to switch directly from this task to a composition
-task using the current file as first merging candidate.
+Waypoints, routes and tracks could be displayed.  
+A list of the names of theses elements is established
+while the file is read to draw on the map. One of theses elements could then be
+selected as focus for some operations. The names are prefixed with:
 
-Waypoints, routes and tracks could be displayed.
++ "R: " for a route.
++ "T: " for a track.
++ "P: " for a waypoint.
 
 Two modes of display are available for the tracks: "**Entire**"
 and "**Vapor Trail**".
 The waypoints and routes are always displayed as for the "**Entire**" mode.
 
-The "**+ Waypoint**" button and the "**+ Route**" button performs the
-same function as the "**Entire**" button but, when the end of the file
-is attained, they start a picking session respectively for waypoints
-and for a route.
-
 ![Menu](Gallery/Menu.jpg)
 
-### "Entire" mode
+## "Entire" mode
 
 The application sends the instructions to Msb2Map for waypoints, routes
 and tracks starting from the beginning of the file as fast as
 permitted by the processing speed.  
 The map is initially centered on the first item to display.  
+But if an item has been selected as focus, it is used as center
+for the map.  
 Processing of the file restarts from the beginning if it has
 been interrupted by a return from Msb2Map.
 
@@ -43,16 +44,30 @@ been interrupted by a return from Msb2Map.
 
 ![Routes](Gallery/Routes.jpg)
 
-#### Map center
+The "**Actions**" button opens a menu essentially identical to
+the initial menu for task selection. The difference is that
+the current file is first displayed in the "**Entire**" mode
+and is the first concerned by the tasks.  
+There could also be a supplementary task: renaming of the element
+selected as focus.  See [Actions](Actions.md).
 
-The name and location of each item (waypoint, route of track) is
-stored as it is displayed. At the return from Msb2Map it is possible
-to select which of theses items should be at the center of the map.  
-Thus, the selection of the center is only possible for the second
-and further entire mode sessions.
+The "**Info**" button displays some information about the
+element that has the focus. For a:
 
++ Waypoint: name, position (latitude, longitude) and altitude if available.
 
-### "Vapor trail" mode
++ Route: name, start position with altitude if available, stop position
+ with altitude if available, length (km), number of points,
+ for the farthest location from the start position: distance (km) and position
+ with altitude if available.
+
++ Track: name, date and hour of start, start position with altitude,
+ date and hour of end, end position with altitude, length (km),
+ duration (minutes), number of points, for the farthest from the
+ start position: distance and position.  
+ A chart displays a choice of data for the track: look at [Chart](Chart.md).
+
+## "Vapor trail" mode
 
 If waypoints or routes are read from the file while in this mode,
 they are displayed as in the "Entire" mode.  
